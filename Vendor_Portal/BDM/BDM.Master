@@ -1,0 +1,217 @@
+﻿<%@ Master Language="C#" AutoEventWireup="true" CodeBehind="BDM.master.cs" Inherits="Vendor_Portal.BDM.BDM" %>
+
+<%@ Register Assembly="AjaxControlToolkit" Namespace="AjaxControlToolkit" TagPrefix="asp" %>
+
+<!DOCTYPE html>
+
+<html>
+<head runat="server">
+    <title>Infinity IPS</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,700&display=fallback">
+    <link rel="stylesheet" href="https://unicons.iconscout.com/release/v4.0.8/css/line.css">
+    <!-- Font Awesome Icons -->
+    <script src="../plugins/jquery/jquery.min.js"></script>
+    <link rel="stylesheet" href="../plugins/fontawesome-free/css/all.min.css">
+    <link rel="stylesheet" href="../plugins/datatables-bs4/css/dataTables.bootstrap4.min.css">
+    <link rel="stylesheet" href="../plugins/datatables-responsive/css/responsive.bootstrap4.min.css">
+    <link rel="stylesheet" href="../plugins/datatables-buttons/css/buttons.bootstrap4.min.css">
+    <!-- Theme style -->
+    <link rel="stylesheet" href="../dist/css/adminlte.min.css">
+    <asp:ContentPlaceHolder ID="head" runat="server">
+    </asp:ContentPlaceHolder>
+    <script>
+        $(document).ready(function () {
+            var CurrentUser = "<%=HttpContext.Current.User.Identity.Name.ToString() %>";
+            if (CurrentUser == 12 || CurrentUser == 8128) {
+                document.getElementById("billingheader").style.display = '';
+                document.getElementById("othercosting").style.display = '';
+                document.getElementById("importexcel").style.display = '';
+                document.getElementById("secbilling").style.display = '';
+                document.getElementById("mergebilling").style.display = 'none';
+                document.getElementById("payingEntity").style.display = 'none';
+            }
+            else {
+                document.getElementById("billingheader").style.display = 'none';
+                document.getElementById("othercosting").style.display = 'none';
+                document.getElementById("importexcel").style.display = 'none';
+                document.getElementById("secbilling").style.display = 'none';
+                document.getElementById("mergebilling").style.display = '';
+                document.getElementById("payingEntity").style.display = '';
+            }
+        });
+    </script>
+</head>
+<body class="hold-transition sidebar-collapse layout-top-nav">
+    <form id="form1" runat="server">
+        <asp:ToolkitScriptManager ID="ToolkitScriptManager1" runat="server" EnablePageMethods="true">
+            <Scripts>
+                <asp:ScriptReference Path="~/Scripts/Functions/ProjectDetailsMaster.js?v=1" />
+                <asp:ScriptReference Path="~/Scripts/Functions/Yettobebilled.js?v=1" />
+                <asp:ScriptReference Path="~/Scripts/Functions/PriceConfiguration.js?v=1" />
+                <asp:ScriptReference Path="~/Scripts/Functions/Reports.js?v=1" />
+                <asp:ScriptReference Path="~/Scripts/Functions/MergedBilling.js?v=1" />
+                <asp:ScriptReference Path="~/Scripts/Functions/OtherAmount.js" />
+            </Scripts>
+        </asp:ToolkitScriptManager>
+        <div class="wrapper">
+
+            <!-- Navbar -->
+            <nav class="main-header navbar navbar-expand-md navbar-light navbar-white">
+                <div class="container">
+                    <a href="Dashboard.aspx" class="navbar-brand">
+                        <img src="../images/logo.png" style="height: 50px;" />
+                        <span class="brand-text font-weight-light" style="color: white!important;">Client Billing</span>
+                    </a>
+
+                    <button class="navbar-toggler order-1" type="button" data-toggle="collapse" data-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+
+                    <div class="collapse navbar-collapse order-3" id="navbarCollapse" style="float: right;">
+                        <!-- Left navbar links -->
+                        <ul class="navbar-nav">
+                            <li class="nav-item" style="display: none;">
+                                <a class="nav-link" data-widget="pushmenu" href="#" role="button"><i class="fas fa-bars"></i></a>
+                            </li>
+                            <li class="nav-item dropdown"><a id="quicklinks" href="Dashboard.aspx" class="nav-link">Dashboard</a></li>
+                            <li class="nav-item dropdown">
+                                <a id="salarysection" href="#" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" class="nav-link dropdown-toggle">Masters</a>
+                                <ul aria-labelledby="salarysection" class="dropdown-menu border-0 shadow">
+                                    <li id="costingMaster" runat="server"><a href="ProjectDetailsMaster.aspx" class="dropdown-item">Project Costing</a></li>
+                                    <li id="billingheader"><a href="BillingHeaderConfiguration.aspx" class="dropdown-item">Billing Header Configuration</a></li>
+                                    <li id="othercosting"><a href="OtherCosting.aspx" class="dropdown-item">Securitization/ Reliance Letter Costing</a></li>
+                                    <li id="importexcel"><a href="ImportCostingExcel.aspx" class="dropdown-item">Import Costing Excel</a></li>
+                                    <li id="secbilling"><a href="SecuritizationBilling.aspx" class="dropdown-item">561 Securitization Billing</a></li>
+                                    <li id="payingEntity"><a href="PayingEntityMaster.aspx" class="dropdown-item">Paying Entity Master</a></li>
+                                    <li id="OtherAmount"><a href="OtherBillingAmontMaster.aspx" class="dropdown-item">Other Billing Amount Master</a></li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a id="pmutilities" href="#" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" class="nav-link dropdown-toggle">Billing</a>
+                                <ul aria-labelledby="pmutilities" class="dropdown-menu border-0 shadow">
+                                    <li><a href="Yettobebilled_Revised.aspx" class="dropdown-item">Invoices to be submitted</a></li>
+                                    <li id="mergebilling" runat="server"><a href="MergedBilling.aspx" class="dropdown-item">561 Billing</a></li>
+                                    <li><a href="SentToClient.aspx" class="dropdown-item">Invoice issued to client</a></li>
+                                    <li class="dropdown-divider"></li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown" id="reports" runat="server">
+                                <a href="#" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" class="nav-link dropdown-toggle">Reports</a>
+                                <ul aria-labelledby="pmutilities" class="dropdown-menu border-0 shadow">
+                                    <li><a href="AllProjectBillingReport.aspx" class="dropdown-item">All project Billing Details</a></li>
+                                    <li><a href="ClientBillingDeviationReport.aspx" class="dropdown-item">Client Billing Deviation Report</a></li>
+                                    <li><a href="BillingDifference.aspx" class="dropdown-item">Auto vs Manual Billing Difference</a></li>
+                                    <li><a href="CostPerRecordReport.aspx" class="dropdown-item">Cost Per Record</a></li>
+                                    <li id="dailyVolume" runat="server"><a href="DailyVolume.aspx" class="dropdown-item">Daily Volume Report</a></li>
+
+                                    <li class="dropdown-divider"></li>
+                                </ul>
+                            </li>
+
+                        </ul>
+
+
+                    </div>
+
+                    <!-- Right navbar links -->
+                    <ul class="order-1 order-md-3 navbar-nav navbar-no-expand ml-auto">
+                        <!-- Messages Dropdown Menu -->
+
+                        <!-- Notifications Dropdown Menu -->
+
+                        <li class="nav-item">
+                            <a class="nav-link" data-widget="control-sidebar" data-slide="true" href="#" role="button">
+                                <i class="fas fa-bell"></i>
+                                <span class="badge badge-danger navbar-badge" id="admin_pendingtask"></span>
+                            </a>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link" data-toggle="dropdown" href="#">
+                                <i class="fas fa-cog" style="color: white;"></i>
+
+                            </a>
+                            <div class="dropdown-menu dropdown-menu-lg dropdown-menu-right">
+                                <span class="dropdown-header">Settings</span>
+                                <div class="dropdown-divider"></div>
+                                <a href="ChangePassword.aspx" class="dropdown-item">
+                                    <i class="fas fa-envelope mr-2"></i>Change Password             
+                                </a>
+                                <div class="dropdown-divider"></div>
+                                <a href="../Logout.aspx" class="dropdown-item">
+                                    <i class="fas fa-sign-out-alt mr-2"></i>Logout
+                                </a>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+            <!-- /.navbar -->
+
+            <!-- Main Sidebar Container -->
+
+            <!-- Content Wrapper. Contains page content -->
+            <div class="content-wrapper" style="min-height: 500px!important; height: auto!important;">
+                <!-- Content Header (Page header) -->
+
+                <!-- /.content-header -->
+
+                <!-- Main content -->
+                <div class="content">
+                    <div class="container">
+                        <div class="row">
+                            <div class="col-lg-12">
+                                <asp:ContentPlaceHolder ID="ContentPlaceHolder1" runat="server">
+                                </asp:ContentPlaceHolder>
+                            </div>
+                            <!-- /.col-md-6 -->
+
+                            <!-- /.col-md-6 -->
+                        </div>
+                        <!-- /.row -->
+                    </div>
+                    <!-- /.container-fluid -->
+                </div>
+                <!-- /.content -->
+            </div>
+            <!-- /.content-wrapper -->
+
+            <!-- Control Sidebar -->
+            <aside class="control-sidebar control-sidebar-dark" style="width: 450px;">
+                <h5 style="padding-top: 50px; text-align: center;"><i class="fas fa-bell"></i>&nbsp;&nbsp;Pending Task List</h5>
+                <div id="dvsidebar" style="text-align: left; padding-left: 20px; padding-top: 20px;"></div>
+                <!-- Control sidebar content goes here -->
+            </aside>
+            <!-- /.control-sidebar -->
+
+            <!-- Main Footer -->
+
+        </div>
+
+        <!-- Bootstrap 4 -->
+
+
+        <script src="../plugins/datatables/jquery.dataTables.min.js"></script>
+        <script src="../plugins/datatables-bs4/js/dataTables.bootstrap4.min.js"></script>
+        <script src="../plugins/datatables-responsive/js/dataTables.responsive.min.js"></script>
+        <script src="../plugins/datatables-responsive/js/responsive.bootstrap4.min.js"></script>
+        <script src="../plugins/datatables-buttons/js/dataTables.buttons.min.js"></script>
+        <script src="../plugins/datatables-buttons/js/buttons.bootstrap4.min.js"></script>
+        <script src="../plugins/jszip/jszip.min.js"></script>
+        <script src="../plugins/pdfmake/pdfmake.min.js"></script>
+        <script src="../plugins/pdfmake/vfs_fonts.js"></script>
+        <script src="../plugins/datatables-buttons/js/buttons.html5.min.js"></script>
+        <script src="../plugins/datatables-buttons/js/buttons.print.min.js"></script>
+        <script src="../plugins/datatables-buttons/js/buttons.colVis.min.js"></script>
+        <script src="../plugins/datatables-fixedcolumns/js/dataTables.fixedColumns.min.js"></script>
+        <script src="../plugins/datatables-fixedcolumns/js/dataTables.fixedColumns.js"></script>
+        <script src="../plugins/datatables-fixedheader/js/dataTables.fixedHeader.min.js"></script>
+        <script src="../plugins/datatables-fixedheader/js/dataTables.fixedHeader.js"></script>
+        <!-- AdminLTE App -->
+        <script src="../plugins/bootstrap/js/bootstrap.bundle.min.js"></script>
+        <script src="../dist/js/adminlte.min.js"></script>
+        <!-- AdminLTE for demo purposes -->
+
+
+    </form>
+</body>
+</html>

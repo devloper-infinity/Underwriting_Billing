@@ -1496,6 +1496,34 @@ namespace Vendor_Portal.App_Code.DAL
             DataTable dt = SQLHelper.ExecuteDataTableCmd_billing(cmd);
             return dt;
         } 
+        public DataTable GetAllVendorCosting(string Month, string Year)
+        {
+            SqlCommand cmd = SQLHelper.GetCommand(CommandType.StoredProcedure, "[usp_AllVendorCosting]");
+            SQLHelper.AddParamToSQLCmd(cmd, "@Month", SqlDbType.NVarChar, 100, ParameterDirection.Input, Month);
+            SQLHelper.AddParamToSQLCmd(cmd, "@Year", SqlDbType.NVarChar, 100, ParameterDirection.Input, Year);
+
+            return SQLHelper.ExecuteDataTableCmd_billing(cmd);
+        }
+        public DataSet GetAllVendorCostingComparison(DateTime periodAFrom, DateTime periodATo, DateTime? periodBFrom, DateTime? periodBTo)
+        {
+            SqlCommand cmd = SQLHelper.GetCommand(CommandType.StoredProcedure, "[usp_AllVendorCostingComparison]");
+            cmd.Parameters.Add("@PeriodAFrom", SqlDbType.Date).Value = periodAFrom.Date;
+            cmd.Parameters.Add("@PeriodATo", SqlDbType.Date).Value = periodATo.Date;
+            cmd.Parameters.Add("@PeriodBFrom", SqlDbType.Date).Value = periodBFrom.HasValue ? (object)periodBFrom.Value.Date : DBNull.Value;
+            cmd.Parameters.Add("@PeriodBTo", SqlDbType.Date).Value = periodBTo.HasValue ? (object)periodBTo.Value.Date : DBNull.Value;
+            return SQLHelper.ExecuteDataSetCmd_BillingStrict(cmd);
+        }
+        public DataTable GetAllVendorCostingInvoiceDetails(string vendor, string project, string process, DateTime fromDate, DateTime toDate)
+        {
+            SqlCommand cmd = SQLHelper.GetCommand(CommandType.StoredProcedure, "[usp_AllVendorCostingInvoiceDetails]");
+            cmd.Parameters.Add("@Vendor", SqlDbType.NVarChar, 100).Value = vendor;
+            cmd.Parameters.Add("@Project", SqlDbType.NVarChar, 200).Value = String.IsNullOrWhiteSpace(project) ? (object)DBNull.Value : project;
+            cmd.Parameters.Add("@Process", SqlDbType.NVarChar, 200).Value = String.IsNullOrWhiteSpace(process) ? (object)DBNull.Value : process;
+            cmd.Parameters.Add("@FromDate", SqlDbType.Date).Value = fromDate.Date;
+            cmd.Parameters.Add("@ToDate", SqlDbType.Date).Value = toDate.Date;
+            DataSet data = SQLHelper.ExecuteDataSetCmd_BillingStrict(cmd);
+            return data.Tables.Count == 0 ? new DataTable() : data.Tables[0];
+        }
         public DataTable GetDailyVolumeReport(string Month, string Year)
         {
             SqlCommand cmd = SQLHelper.GetCommand(System.Data.CommandType.StoredProcedure, "[usp_GetDailyOrderCountForEmail_Revised]");
@@ -1514,6 +1542,199 @@ namespace Vendor_Portal.App_Code.DAL
 
             DataSet dt = SQLHelper.ExecuteDataSetCmd(cmd);
             return dt;
+        }
+
+        public DataTable GetCostingHeaders()
+        {
+            const string sql = @"SELECT CostingHeaderID, HeaderName, CreatedBy,
+                                        CONVERT(VARCHAR(19), CreatedOn, 120) AS CreatedOn
+                                 FROM dbo.CostingHeaderMaster
+                                 WHERE IsActive = 1
+                                 ORDER BY HeaderName;";
+
+            using (SqlConnection connection = new SqlConnection(SQLHelper.ConnectionString2))
+            using (SqlCommand command = new SqlCommand(sql, connection))
+            using (SqlDataAdapter adapter = new SqlDataAdapter(command))
+            {
+                DataTable table = new DataTable();
+                adapter.Fill(table);
+                return table;
+            }
+        }
+
+        public int InsertCostingHeader(string headerName, string createdBy)
+        {
+            const string sql = @"INSERT dbo.CostingHeaderMaster (HeaderName, CreatedBy)
+                                 OUTPUT INSERTED.CostingHeaderID
+                                 VALUES (@HeaderName, @CreatedBy);";
+
+            using (SqlConnection connection = new SqlConnection(SQLHelper.ConnectionString2))
+            using (SqlCommand command = new SqlCommand(sql, connection))
+            {
+                command.Parameters.Add("@HeaderName", SqlDbType.NVarChar, 200).Value = headerName;
+                command.Parameters.Add("@CreatedBy", SqlDbType.NVarChar, 100).Value = createdBy;
+                connection.Open();
+                return Convert.ToInt32(command.ExecuteScalar());
+            }
+        }
+
+        public DataTable GetCostingEntries()
+        {
+            const string sql = @"SELECT c.CostingID,
+                                        DATENAME(MONTH, DATEFROMPARTS(c.CostingYear, c.CostingMonth, 1)) AS [Month],
+                                        c.CostingYear AS [Year], h.HeaderName AS CostingHeader,
+                                        CASE WHEN c.AppliesToAllProjects = 1 THEN N'All Projects'
+                                             ELSE STUFF((SELECT N', ' + cp.ProjectName
+                                                         FROM dbo.CostingMasterProject cp
+                                                         WHERE cp.CostingID = c.CostingID
+                                                         ORDER BY cp.ProjectName
+                                                         FOR XML PATH(''), TYPE).value('.', 'nvarchar(max)'), 1, 2, N'')
+                                        END AS Projects,
+                                        c.Amount, c.CreatedBy,
+                                        CONVERT(VARCHAR(19), c.CreatedOn, 120) AS CreatedOn
+                                 FROM dbo.CostingMaster c
+                                 INNER JOIN dbo.CostingHeaderMaster h
+                                     ON h.CostingHeaderID = c.CostingHeaderID
+                                 WHERE c.IsActive = 1
+                                 ORDER BY c.CostingYear DESC, c.CostingMonth DESC, h.HeaderName;";
+
+            using (SqlConnection connection = new SqlConnection(SQLHelper.ConnectionString2))
+            using (SqlCommand command = new SqlCommand(sql, connection))
+            using (SqlDataAdapter adapter = new SqlDataAdapter(command))
+            {
+                DataTable table = new DataTable();
+                adapter.Fill(table);
+                return table;
+            }
+        }
+
+        public int InsertCosting(int month, int year, int costingHeaderId, decimal amount,
+            bool appliesToAllProjects, IList<KeyValuePair<int, string>> projects, string createdBy)
+        {
+            using (SqlConnection connection = new SqlConnection(SQLHelper.ConnectionString2))
+            {
+                connection.Open();
+                using (SqlTransaction transaction = connection.BeginTransaction())
+                {
+                    try
+                    {
+                        string duplicateSql = @"SELECT COUNT(1) FROM dbo.CostingMaster c WHERE c.IsActive = 1
+                            AND c.CostingMonth = @Month AND c.CostingYear = @Year
+                            AND c.CostingHeaderID = @CostingHeaderID AND c.AppliesToAllProjects = @AllProjects";
+                        if (!appliesToAllProjects)
+                        {
+                            duplicateSql += " AND EXISTS (SELECT 1 FROM dbo.CostingMasterProject cp WHERE cp.CostingID = c.CostingID AND cp.ProjectID IN (";
+                            duplicateSql += String.Join(",", projects.Select((p, index) => "@Project" + index));
+                            duplicateSql += "))";
+                        }
+
+                        using (SqlCommand duplicate = new SqlCommand(duplicateSql, connection, transaction))
+                        {
+                            duplicate.Parameters.Add("@Month", SqlDbType.TinyInt).Value = month;
+                            duplicate.Parameters.Add("@Year", SqlDbType.SmallInt).Value = year;
+                            duplicate.Parameters.Add("@CostingHeaderID", SqlDbType.Int).Value = costingHeaderId;
+                            duplicate.Parameters.Add("@AllProjects", SqlDbType.Bit).Value = appliesToAllProjects;
+                            for (int i = 0; i < projects.Count; i++)
+                                duplicate.Parameters.Add("@Project" + i, SqlDbType.Int).Value = projects[i].Key;
+                            if (Convert.ToInt32(duplicate.ExecuteScalar()) > 0)
+                                throw new InvalidOperationException("Costing already exists for the selected period, header and project selection.");
+                        }
+
+                        const string insertSql = @"INSERT dbo.CostingMaster
+                            (CostingMonth, CostingYear, CostingHeaderID, Amount, AppliesToAllProjects, CreatedBy)
+                            OUTPUT INSERTED.CostingID
+                            VALUES (@Month, @Year, @CostingHeaderID, @Amount, @AllProjects, @CreatedBy);";
+                        int costingId;
+                        using (SqlCommand command = new SqlCommand(insertSql, connection, transaction))
+                        {
+                            command.Parameters.Add("@Month", SqlDbType.TinyInt).Value = month;
+                            command.Parameters.Add("@Year", SqlDbType.SmallInt).Value = year;
+                            command.Parameters.Add("@CostingHeaderID", SqlDbType.Int).Value = costingHeaderId;
+                            SqlParameter amountParameter = command.Parameters.Add("@Amount", SqlDbType.Decimal);
+                            amountParameter.Precision = 18;
+                            amountParameter.Scale = 2;
+                            amountParameter.Value = amount;
+                            command.Parameters.Add("@AllProjects", SqlDbType.Bit).Value = appliesToAllProjects;
+                            command.Parameters.Add("@CreatedBy", SqlDbType.NVarChar, 100).Value = createdBy;
+                            costingId = Convert.ToInt32(command.ExecuteScalar());
+                        }
+
+                        if (!appliesToAllProjects)
+                        {
+                            const string projectSql = @"INSERT dbo.CostingMasterProject (CostingID, ProjectID, ProjectName)
+                                                        VALUES (@CostingID, @ProjectID, @ProjectName);";
+                            foreach (KeyValuePair<int, string> project in projects)
+                            {
+                                using (SqlCommand projectCommand = new SqlCommand(projectSql, connection, transaction))
+                                {
+                                    projectCommand.Parameters.Add("@CostingID", SqlDbType.Int).Value = costingId;
+                                    projectCommand.Parameters.Add("@ProjectID", SqlDbType.Int).Value = project.Key;
+                                    projectCommand.Parameters.Add("@ProjectName", SqlDbType.NVarChar, 300).Value = project.Value;
+                                    projectCommand.ExecuteNonQuery();
+                                }
+                            }
+                        }
+
+                        transaction.Commit();
+                        return costingId;
+                    }
+                    catch
+                    {
+                        transaction.Rollback();
+                        throw;
+                    }
+                }
+            }
+        }
+
+        public DataTable GetCostingReportRows(int month, int year)
+        {
+            const string sql = @"SELECT h.CostingHeaderID, h.HeaderName, c.CostingID, c.Amount,
+                                        c.AppliesToAllProjects, cp.ProjectID, cp.ProjectName
+                                 FROM dbo.CostingHeaderMaster h
+                                 LEFT JOIN dbo.CostingMaster c ON c.CostingHeaderID = h.CostingHeaderID
+                                     AND c.CostingMonth = @Month AND c.CostingYear = @Year AND c.IsActive = 1
+                                 LEFT JOIN dbo.CostingMasterProject cp ON cp.CostingID = c.CostingID
+                                 WHERE h.IsActive = 1
+                                 ORDER BY h.HeaderName, c.CostingID, cp.ProjectName;";
+            using (SqlConnection connection = new SqlConnection(SQLHelper.ConnectionString2))
+            using (SqlCommand command = new SqlCommand(sql, connection))
+            using (SqlDataAdapter adapter = new SqlDataAdapter(command))
+            {
+                command.Parameters.Add("@Month", SqlDbType.TinyInt).Value = month;
+                command.Parameters.Add("@Year", SqlDbType.SmallInt).Value = year;
+                DataTable table = new DataTable();
+                adapter.Fill(table);
+                return table;
+            }
+        }
+
+        public DataTable GetCostingHistory(int costingId)
+        {
+            const string sql = @"SELECT h.ActionName AS [Action], h.HeaderName AS CostingHeader,
+                                        DATENAME(MONTH, DATEFROMPARTS(h.CostingYear, h.CostingMonth, 1)) AS [Month],
+                                        h.CostingYear AS [Year],
+                                        CASE WHEN c.AppliesToAllProjects = 1 THEN N'All Projects'
+                                             ELSE STUFF((SELECT N', ' + cp.ProjectName FROM dbo.CostingMasterProject cp
+                                                         WHERE cp.CostingID = h.CostingID ORDER BY cp.ProjectName
+                                                         FOR XML PATH(''), TYPE).value('.', 'nvarchar(max)'), 1, 2, N'')
+                                        END AS Projects,
+                                        h.Amount, h.ChangedBy,
+                                        CONVERT(VARCHAR(19), h.ChangedOn, 120) AS ChangedOn
+                                 FROM dbo.CostingMasterHistory h
+                                 LEFT JOIN dbo.CostingMaster c ON c.CostingID = h.CostingID
+                                 WHERE h.CostingID = @CostingID
+                                 ORDER BY h.ChangedOn DESC, h.CostingHistoryID DESC;";
+
+            using (SqlConnection connection = new SqlConnection(SQLHelper.ConnectionString2))
+            using (SqlCommand command = new SqlCommand(sql, connection))
+            using (SqlDataAdapter adapter = new SqlDataAdapter(command))
+            {
+                command.Parameters.Add("@CostingID", SqlDbType.Int).Value = costingId;
+                DataTable table = new DataTable();
+                adapter.Fill(table);
+                return table;
+            }
         }
 
         public DataTable GetMergedBillingFor561(string Month, string Year, int ProjectID)

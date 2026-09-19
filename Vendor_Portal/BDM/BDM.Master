@@ -102,6 +102,7 @@
                                     <li><a href="ClientBillingDeviationReport.aspx" class="dropdown-item">Client Billing Deviation Report</a></li>
                                     <li><a href="BillingDifference.aspx" class="dropdown-item">Auto vs Manual Billing Difference</a></li>
                                     <li><a href="CostPerRecordReport.aspx" class="dropdown-item">Cost Per Record</a></li>
+                                    <li><a href="AllVendorCosting.aspx" class="dropdown-item">All Vendor Costing</a></li>
                                     <li id="dailyVolume" runat="server"><a href="DailyVolume.aspx" class="dropdown-item">Daily Volume Report</a></li>
 
                                     <li class="dropdown-divider"></li>

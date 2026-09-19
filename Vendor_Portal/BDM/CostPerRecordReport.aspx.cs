@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Data.SqlClient;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -26,6 +27,154 @@ namespace Vendor_Portal.BDM
         protected void Page_Load(object sender, EventArgs e)
         {
 
+        }
+
+        private static string SerializeTable(DataTable table)
+        {
+            List<Dictionary<string, object>> rows = new List<Dictionary<string, object>>();
+            if (table != null)
+            {
+                foreach (DataRow dataRow in table.Rows)
+                {
+                    Dictionary<string, object> row = new Dictionary<string, object>();
+                    foreach (DataColumn column in table.Columns)
+                    {
+                        row[column.ColumnName] = dataRow[column] == DBNull.Value ? null : dataRow[column];
+                    }
+                    rows.Add(row);
+                }
+            }
+
+            JavaScriptSerializer serializer = new JavaScriptSerializer();
+            serializer.MaxJsonLength = int.MaxValue;
+            return serializer.Serialize(rows);
+        }
+
+        private static string CurrentUserName()
+        {
+            string name = HttpContext.Current.User.Identity.Name;
+            return String.IsNullOrWhiteSpace(name) ? "Unknown" : name;
+        }
+
+        [WebMethod]
+        public static string GetCostingHeaders()
+        {
+            return SerializeTable(new bllTracking().GetCostingHeaders());
+        }
+
+        [WebMethod]
+        public static int SaveCostingHeader(string headerName)
+        {
+            headerName = (headerName ?? String.Empty).Trim();
+            if (headerName.Length == 0 || headerName.Length > 200)
+            {
+                throw new ArgumentException("Costing Header is required and cannot exceed 200 characters.");
+            }
+
+            try
+            {
+                return new bllTracking().InsertCostingHeader(headerName, CurrentUserName());
+            }
+            catch (SqlException ex)
+            {
+                if (ex.Number == 2601 || ex.Number == 2627)
+                {
+                    throw new InvalidOperationException("This Costing Header already exists.");
+                }
+                throw;
+            }
+        }
+
+        [WebMethod]
+        public static string GetCostingEntries()
+        {
+            return SerializeTable(new bllTracking().GetCostingEntries());
+        }
+
+        [WebMethod]
+        public static string GetCostingProjects()
+        {
+            return SerializeTable(new bllTracking().GetAllProjectByUserRights());
+        }
+
+        private static Dictionary<int, string> GetProjectDictionary()
+        {
+            DataTable table = new bllTracking().GetAllProjectByUserRights();
+            Dictionary<int, string> projects = new Dictionary<int, string>();
+            if (table == null || !table.Columns.Contains("ProjectID")) return projects;
+            string nameColumn = table.Columns.Contains("ProjectName") ? "ProjectName" :
+                (table.Columns.Contains("ProjectName1") ? "ProjectName1" :
+                (table.Columns.Contains("Project") ? "Project" : null));
+            if (nameColumn == null) return projects;
+            foreach (DataRow row in table.Rows)
+            {
+                int id;
+                if (Int32.TryParse(Convert.ToString(row["ProjectID"]), out id) && id > 0)
+                    projects[id] = Convert.ToString(row[nameColumn]);
+            }
+            return projects;
+        }
+
+        [WebMethod]
+        public static int SaveCosting(int month, int year, int costingHeaderId, decimal amount,
+            bool appliesToAllProjects, int[] projectIds)
+        {
+            if (month < 1 || month > 12)
+            {
+                throw new ArgumentException("Please select a valid month.");
+            }
+            if (year < 2000 || year > 9999)
+            {
+                throw new ArgumentException("Please select a valid year.");
+            }
+            if (costingHeaderId <= 0)
+            {
+                throw new ArgumentException("Please select a Costing Header.");
+            }
+            if (amount < 0)
+            {
+                throw new ArgumentException("Amount cannot be negative.");
+            }
+
+            List<KeyValuePair<int, string>> selectedProjects = new List<KeyValuePair<int, string>>();
+            if (!appliesToAllProjects)
+            {
+                int[] selectedIds = (projectIds ?? new int[0]).Distinct().ToArray();
+                if (selectedIds.Length == 0 || selectedIds.Length > 1000)
+                    throw new ArgumentException("Please select at least one valid Project.");
+                Dictionary<int, string> availableProjects = GetProjectDictionary();
+                foreach (int projectId in selectedIds)
+                {
+                    string projectName;
+                    if (!availableProjects.TryGetValue(projectId, out projectName))
+                        throw new ArgumentException("One or more selected Projects are invalid.");
+                    selectedProjects.Add(new KeyValuePair<int, string>(projectId, projectName));
+                }
+            }
+
+            try
+            {
+                return new bllTracking().InsertCosting(month, year, costingHeaderId, amount,
+                    appliesToAllProjects, selectedProjects, CurrentUserName());
+            }
+            catch (SqlException ex)
+            {
+                if (ex.Number == 2601 || ex.Number == 2627)
+                {
+                    throw new InvalidOperationException("Costing already exists for the selected month, year, header and project.");
+                }
+                throw;
+            }
+        }
+
+        [WebMethod]
+        public static string GetCostingHistory(int costingId)
+        {
+            if (costingId <= 0)
+            {
+                throw new ArgumentException("Invalid costing record.");
+            }
+            return SerializeTable(new bllTracking().GetCostingHistory(costingId));
         }
 
         [WebMethod]

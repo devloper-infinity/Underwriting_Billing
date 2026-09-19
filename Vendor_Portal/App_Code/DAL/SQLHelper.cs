@@ -266,6 +266,21 @@ namespace Vendor_Portal.App_Code.DAL
             return dblds;
         }
 
+        public static DataSet ExecuteDataSetCmd_BillingStrict(SqlCommand sqlCmd)
+        {
+            if (sqlCmd == null) throw new ArgumentNullException("sqlCmd");
+            DataSet data = new DataSet();
+            using (SqlConnection connection = new SqlConnection(ConnectionString2))
+            using (SqlDataAdapter adapter = new SqlDataAdapter(sqlCmd))
+            {
+                sqlCmd.Connection = connection;
+                sqlCmd.CommandTimeout = 0;
+                connection.Open();
+                adapter.Fill(data);
+            }
+            return data;
+        }
+
         public static SqlDataReader ExecuteReaderCmd(SqlCommand sqlCmd)
         {
             SqlDataReader temp;

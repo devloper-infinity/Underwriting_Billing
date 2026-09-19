@@ -1,6 +1,7 @@
 ﻿<%@ Page Title="" Language="C#" MasterPageFile="~/BDM/BDM.Master" AutoEventWireup="true" CodeBehind="CostPerRecordReport.aspx.cs" Inherits="Vendor_Portal.BDM.CostPerRecordReport" %>
 
 <asp:Content ID="Content1" ContentPlaceHolderID="head" runat="server">
+    <script src="../Scripts/Functions/CostingMaster.js?v=1"></script>
     <style>
         .loading {
             display: none;
@@ -57,6 +58,17 @@
         /*.form-control {
             font-size: 11px !important;
         }*/
+
+        .costing-form label { font-weight: 600 !important; }
+        .cm-project-picker { position: relative; }
+        .cm-project-menu {
+            display: none; position: absolute; z-index: 1050; width: 100%; max-height: 280px;
+            overflow: hidden; background: #fff; border: 1px solid #ced4da; border-radius: .25rem;
+            box-shadow: 0 .5rem 1rem rgba(0,0,0,.15); padding: .5rem;
+        }
+        .cm-project-list { max-height: 210px; overflow-y: auto; margin-top: .5rem; }
+        .cm-project-option { display: block; padding: .2rem .35rem; margin: 0; cursor: pointer; }
+        .cm-project-option:hover { background: #f2f4f7; }
     </style>
     <script>
         $(document).ready(function () {
@@ -188,6 +200,9 @@
                                     <li class="nav-item">
                                         <a class="nav-link" onclick="return cprr_bindProjectGrid();" id="custom-tabs-one-profile-tab_deal" data-toggle="pill" href="#custom-tabs-one-profile_deal" role="tab" aria-controls="custom-tabs-one-profile_deal" aria-selected="false"><b>Projectwise</b></a>
                                     </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" onclick="return cm_openCostingMaster();" id="costing-master-tab" data-toggle="pill" href="#costing-master" role="tab" aria-controls="costing-master" aria-selected="false"><b>Costing Master</b></a>
+                                    </li>
 
                                 </ul>
                             </div>
@@ -205,6 +220,68 @@
                                         <table class="table" id="cprr_projectwise" style="width: 100%;">
                                         </table>
                                     </div>
+                                    <div class="tab-pane fade" id="costing-master" role="tabpanel" aria-labelledby="costing-master-tab">
+                                        <ul class="nav nav-tabs" id="costing-master-inner-tabs" role="tablist">
+                                            <li class="nav-item"><a class="nav-link active" id="costing-header-tab" data-toggle="pill" href="#costing-header-pane" role="tab"><b>Costing Header</b></a></li>
+                                            <li class="nav-item"><a class="nav-link" id="add-costing-tab" data-toggle="pill" href="#add-costing-pane" role="tab"><b>Add Costing</b></a></li>
+                                        </ul>
+                                        <div class="tab-content pt-3">
+                                            <div class="tab-pane fade show active" id="costing-header-pane" role="tabpanel">
+                                                <div class="row costing-form">
+                                                    <div class="col-md-6 form-group">
+                                                        <label for="cm_headerName">Costing Header</label>
+                                                        <input type="text" id="cm_headerName" class="form-control" maxlength="200" placeholder="Enter Costing Header" />
+                                                    </div>
+                                                    <div class="col-md-2 form-group d-flex align-items-end">
+                                                        <button type="button" class="btn btn-primary" onclick="return cm_saveHeader();">Save</button>
+                                                    </div>
+                                                </div>
+                                                <hr />
+                                                <table class="table table-bordered" id="cm_headerTable" style="width: 100%;"></table>
+                                            </div>
+                                            <div class="tab-pane fade" id="add-costing-pane" role="tabpanel">
+                                                <div class="row costing-form">
+                                                    <div class="col-md-2 form-group">
+                                                        <label for="cm_month">Month</label>
+                                                        <select id="cm_month" class="form-control">
+                                                            <option value="">Select</option>
+                                                            <option value="1">January</option><option value="2">February</option>
+                                                            <option value="3">March</option><option value="4">April</option>
+                                                            <option value="5">May</option><option value="6">June</option>
+                                                            <option value="7">July</option><option value="8">August</option>
+                                                            <option value="9">September</option><option value="10">October</option>
+                                                            <option value="11">November</option><option value="12">December</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-2 form-group">
+                                                        <label for="cm_year">Year</label>
+                                                        <select id="cm_year" class="form-control"><option value="">Select</option></select>
+                                                    </div>
+                                                    <div class="col-md-2 form-group">
+                                                        <label for="cm_costingHeader">Costing Header</label>
+                                                        <select id="cm_costingHeader" class="form-control"><option value="">Select</option></select>
+                                                    </div>
+                                                    <div class="col-md-3 form-group cm-project-picker">
+                                                        <label for="cm_projectButton">Project #</label>
+                                                        <button type="button" id="cm_projectButton" class="form-control text-left">All Projects</button>
+                                                        <div id="cm_projectMenu" class="cm-project-menu">
+                                                            <input type="text" id="cm_projectSearch" class="form-control form-control-sm" placeholder="Search projects" autocomplete="off" />
+                                                            <div id="cm_projectList" class="cm-project-list"></div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-2 form-group">
+                                                        <label for="cm_amount">Amount</label>
+                                                        <input type="number" id="cm_amount" class="form-control" min="0" step="0.01" placeholder="0.00" />
+                                                    </div>
+                                                    <div class="col-md-1 form-group d-flex align-items-end">
+                                                        <button type="button" class="btn btn-primary" onclick="return cm_saveCosting();">Save</button>
+                                                    </div>
+                                                </div>
+                                                <hr />
+                                                <table class="table table-bordered" id="cm_costingTable" style="width: 100%;"></table>
+                                            </div>
+                                        </div>
+                                    </div>
 
                                 </div>
                             </div>
@@ -218,6 +295,18 @@
                         <br />
                         <span style="color: #fff; font-size: 24px; font-weight: bold; font-style: italic;" id="spntext">System is updating details. Please wait</span>
                         <span style="color: #fff; font-size: 48px; font-weight: bold; font-style: italic; animation: animate 1s linear infinite;">&nbsp;. . . .</span>
+                    </div>
+                </div>
+                <div class="modal fade" id="cm_historyModal" tabindex="-1" role="dialog" aria-labelledby="cm_historyModalLabel" aria-hidden="true">
+                    <div class="modal-dialog modal-xl" role="document">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="cm_historyModalLabel">Costing History</h5>
+                                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                            </div>
+                            <div class="modal-body"><table class="table table-bordered" id="cm_historyTable" style="width: 100%;"></table></div>
+                            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button></div>
+                        </div>
                     </div>
                 </div>
             </div>

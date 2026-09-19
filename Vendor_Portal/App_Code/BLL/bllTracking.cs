@@ -546,6 +546,18 @@ namespace Vendor_Portal.App_Code.BLL
         {
             return dalTracking.GetBillingDifference(Month, Year);
         }
+        public DataTable GetAllVendorCosting(string Month, string Year)
+        {
+            return dalTracking.GetAllVendorCosting(Month, Year);
+        }
+        public DataSet GetAllVendorCostingComparison(DateTime periodAFrom, DateTime periodATo, DateTime? periodBFrom, DateTime? periodBTo)
+        {
+            return dalTracking.GetAllVendorCostingComparison(periodAFrom, periodATo, periodBFrom, periodBTo);
+        }
+        public DataTable GetAllVendorCostingInvoiceDetails(string vendor, string project, string process, DateTime fromDate, DateTime toDate)
+        {
+            return dalTracking.GetAllVendorCostingInvoiceDetails(vendor, project, process, fromDate, toDate);
+        }
 
         public DataTable GetDailyVolumeReport(string Month, string Year)
         {
@@ -554,6 +566,31 @@ namespace Vendor_Portal.App_Code.BLL
         public DataSet GetCostPerRecordReport(string Month, string Year)
         {
             return dalTracking.GetCostPerRecordReport(Month, Year);
+        }
+        public DataTable GetCostingHeaders()
+        {
+            return dalTracking.GetCostingHeaders();
+        }
+        public int InsertCostingHeader(string headerName, string createdBy)
+        {
+            return dalTracking.InsertCostingHeader(headerName, createdBy);
+        }
+        public DataTable GetCostingEntries()
+        {
+            return dalTracking.GetCostingEntries();
+        }
+        public int InsertCosting(int month, int year, int costingHeaderId, decimal amount,
+            bool appliesToAllProjects, IList<KeyValuePair<int, string>> projects, string createdBy)
+        {
+            return dalTracking.InsertCosting(month, year, costingHeaderId, amount, appliesToAllProjects, projects, createdBy);
+        }
+        public DataTable GetCostingReportRows(int month, int year)
+        {
+            return dalTracking.GetCostingReportRows(month, year);
+        }
+        public DataTable GetCostingHistory(int costingId)
+        {
+            return dalTracking.GetCostingHistory(costingId);
         }
         public DataTable GetMergedBillingFor561(string Month, string Year, int ProjectID)
         {

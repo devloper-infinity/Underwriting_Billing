@@ -215,6 +215,7 @@
     <Content Include="BDM\BillingHeaderConfiguration.aspx" />
     <Content Include="BDM\ClientBillingDeviationReport.aspx" />
     <Content Include="BDM\CostPerRecordReport.aspx" />
+    <Content Include="BDM\AllVendorCosting.aspx" />
     <Content Include="BDM\DailyVolume.aspx" />
     <Content Include="BDM\Dashboard.aspx" />
     <Content Include="BDM\DownloadFiles.aspx" />
@@ -2797,6 +2798,9 @@
     <Content Include="Scripts\Functions\PriceConfiguration.js" />
     <Content Include="Scripts\Functions\ProjectDetailsMaster.js" />
     <Content Include="Scripts\Functions\Reports.js" />
+    <Content Include="Scripts\Functions\CostingMaster.js" />
+    <Content Include="Scripts\Functions\AllVendorCosting.js" />
+    <Content Include="Database\CostingMaster.sql" />
     <Content Include="Scripts\Functions\Yettobebilled.js" />
     <Content Include="Vendor\AddInvoice.aspx" />
     <Content Include="Vendor\Dashboard.aspx" />
@@ -2868,6 +2872,13 @@
     <Compile Include="BDM\CostPerRecordReport.aspx.cs">
       <DependentUpon>CostPerRecordReport.aspx</DependentUpon>
       <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="BDM\AllVendorCosting.aspx.cs">
+      <DependentUpon>AllVendorCosting.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="BDM\AllVendorCosting.aspx.designer.cs">
+      <DependentUpon>AllVendorCosting.aspx</DependentUpon>
     </Compile>
     <Compile Include="BDM\CostPerRecordReport.aspx.designer.cs">
       <DependentUpon>CostPerRecordReport.aspx</DependentUpon>

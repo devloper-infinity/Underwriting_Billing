@@ -63,6 +63,30 @@ namespace Vendor_Portal.BDM
         }
 
         [WebMethod]
+        public static string GetCostingSubHeaders(int costingHeaderId)
+        {
+            return SerializeTable(new bllTracking().GetCostingSubHeaders(costingHeaderId));
+        }
+
+        [WebMethod]
+        public static int SaveCostingSubHeader(int costingHeaderId, string subHeaderName)
+        {
+            subHeaderName = (subHeaderName ?? String.Empty).Trim();
+            if (costingHeaderId <= 0 || subHeaderName.Length == 0 || subHeaderName.Length > 200)
+                throw new ArgumentException("A valid Costing Header and Sub Header are required.");
+            return new bllTracking().InsertCostingSubHeader(costingHeaderId, subHeaderName, CurrentUserName());
+        }
+
+        [WebMethod]
+        public static int UpdateCostingSubHeader(int costingSubHeaderId, int costingHeaderId, string subHeaderName)
+        {
+            subHeaderName = (subHeaderName ?? String.Empty).Trim();
+            if (costingSubHeaderId <= 0 || costingHeaderId <= 0 || subHeaderName.Length == 0 || subHeaderName.Length > 200)
+                throw new ArgumentException("A valid Costing Header and Sub Header are required.");
+            return new bllTracking().UpdateCostingSubHeader(costingSubHeaderId, costingHeaderId, subHeaderName, CurrentUserName());
+        }
+
+        [WebMethod]
         public static int SaveCostingHeader(string headerName)
         {
             headerName = (headerName ?? String.Empty).Trim();
@@ -81,6 +105,24 @@ namespace Vendor_Portal.BDM
                 {
                     throw new InvalidOperationException("This Costing Header already exists.");
                 }
+                throw;
+            }
+        }
+
+        [WebMethod]
+        public static int UpdateCostingHeader(int costingHeaderId, string headerName)
+        {
+            headerName = (headerName ?? String.Empty).Trim();
+            if (costingHeaderId <= 0 || headerName.Length == 0 || headerName.Length > 200)
+                throw new ArgumentException("A valid Costing Header is required and cannot exceed 200 characters.");
+            try
+            {
+                return new bllTracking().UpdateCostingHeader(costingHeaderId, headerName, CurrentUserName());
+            }
+            catch (SqlException ex)
+            {
+                if (ex.Number == 2601 || ex.Number == 2627)
+                    throw new InvalidOperationException("This Costing Header already exists.");
                 throw;
             }
         }
@@ -116,7 +158,7 @@ namespace Vendor_Portal.BDM
         }
 
         [WebMethod]
-        public static int SaveCosting(int month, int year, int costingHeaderId, decimal amount,
+        public static int SaveCosting(int month, int year, int costingHeaderId, int? costingSubHeaderId, string costingScope, string domainName, decimal amount,
             bool appliesToAllProjects, int[] projectIds)
         {
             if (month < 1 || month > 12)
@@ -135,6 +177,8 @@ namespace Vendor_Portal.BDM
             {
                 throw new ArgumentException("Amount cannot be negative.");
             }
+            domainName = ValidateCostingClassification(costingHeaderId, ref costingSubHeaderId, costingScope, domainName);
+            if (costingScope == "Domain") appliesToAllProjects = true;
 
             List<KeyValuePair<int, string>> selectedProjects = new List<KeyValuePair<int, string>>();
             if (!appliesToAllProjects)
@@ -154,7 +198,7 @@ namespace Vendor_Portal.BDM
 
             try
             {
-                return new bllTracking().InsertCosting(month, year, costingHeaderId, amount,
+                return new bllTracking().InsertCosting(month, year, costingHeaderId, costingSubHeaderId, costingScope, domainName, amount,
                     appliesToAllProjects, selectedProjects, CurrentUserName());
             }
             catch (SqlException ex)
@@ -165,6 +209,52 @@ namespace Vendor_Portal.BDM
                 }
                 throw;
             }
+        }
+
+        [WebMethod]
+        public static int UpdateCosting(int costingId, int month, int year, int costingHeaderId, int? costingSubHeaderId, string costingScope, string domainName, decimal amount,
+            bool appliesToAllProjects, int[] projectIds)
+        {
+            if (costingId <= 0) throw new ArgumentException("Invalid costing record.");
+            if (month < 1 || month > 12) throw new ArgumentException("Please select a valid month.");
+            if (year < 2000 || year > 9999) throw new ArgumentException("Please select a valid year.");
+            if (costingHeaderId <= 0) throw new ArgumentException("Please select a Costing Header.");
+            if (amount < 0) throw new ArgumentException("Amount cannot be negative.");
+            domainName = ValidateCostingClassification(costingHeaderId, ref costingSubHeaderId, costingScope, domainName);
+            if (costingScope == "Domain") appliesToAllProjects = true;
+
+            List<KeyValuePair<int, string>> selectedProjects = new List<KeyValuePair<int, string>>();
+            if (!appliesToAllProjects)
+            {
+                int[] selectedIds = (projectIds ?? new int[0]).Distinct().ToArray();
+                if (selectedIds.Length == 0 || selectedIds.Length > 1000)
+                    throw new ArgumentException("Please select at least one valid Project.");
+                Dictionary<int, string> availableProjects = GetProjectDictionary();
+                foreach (int projectId in selectedIds)
+                {
+                    string projectName;
+                    if (!availableProjects.TryGetValue(projectId, out projectName))
+                        throw new ArgumentException("One or more selected Projects are invalid.");
+                    selectedProjects.Add(new KeyValuePair<int, string>(projectId, projectName));
+                }
+            }
+            return new bllTracking().UpdateCosting(costingId, month, year, costingHeaderId, costingSubHeaderId, costingScope, domainName, amount,
+                appliesToAllProjects, selectedProjects, CurrentUserName());
+        }
+
+        private static string ValidateCostingClassification(int headerId, ref int? subHeaderId, string costingScope, string domainName)
+        {
+            string[] domains = { "Servicing-561", "Servicing-667", "Infinity-Credit", "Canopy-Credit" };
+            if (costingScope != "Domain" && costingScope != "Projects") throw new ArgumentException("Please select whether costing is against Domain or Project(s).");
+            domainName = (domainName ?? String.Empty).Trim();
+            if (costingScope == "Domain" && !domains.Contains(domainName)) throw new ArgumentException("Please select a valid Domain.");
+            if (costingScope == "Projects") domainName = null;
+            DataTable options = new bllTracking().GetCostingSubHeaders(headerId);
+            if (options.Rows.Count == 0) { subHeaderId = null; return domainName; }
+            int selectedSubHeaderId = subHeaderId.GetValueOrDefault();
+            if (!subHeaderId.HasValue || !options.AsEnumerable().Any(r => r.Field<int>("CostingSubHeaderID") == selectedSubHeaderId))
+                throw new ArgumentException("Please select a valid Sub Header.");
+            return domainName;
         }
 
         [WebMethod]

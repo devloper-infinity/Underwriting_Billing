@@ -15,8 +15,11 @@
     <link rel="stylesheet" href="../plugins/datatables-bs4/css/dataTables.bootstrap4.min.css">
     <link rel="stylesheet" href="../plugins/datatables-responsive/css/responsive.bootstrap4.min.css">
     <link rel="stylesheet" href="../plugins/datatables-buttons/css/buttons.bootstrap4.min.css">
+    <link rel="stylesheet" href="../plugins/datatables-fixedcolumns/css/fixedColumns.bootstrap4.min.css">
+    <link rel="stylesheet" href="../plugins/datatables-fixedheader/css/fixedHeader.bootstrap4.min.css">
     <!-- Theme style -->
     <link rel="stylesheet" href="../dist/css/adminlte.min.css">
+    <link rel="stylesheet" href="../dist/css/bdm-portal.css?v=3">
     <asp:ContentPlaceHolder ID="head" runat="server">
     </asp:ContentPlaceHolder>
     <script>
@@ -41,7 +44,7 @@
         });
     </script>
 </head>
-<body class="hold-transition sidebar-collapse layout-top-nav">
+<body class="hold-transition sidebar-collapse layout-top-nav bdm-portal">
     <form id="form1" runat="server">
         <asp:ToolkitScriptManager ID="ToolkitScriptManager1" runat="server" EnablePageMethods="true">
             <Scripts>
@@ -56,18 +59,18 @@
         <div class="wrapper">
 
             <!-- Navbar -->
-            <nav class="main-header navbar navbar-expand-md navbar-light navbar-white">
-                <div class="container">
+            <nav class="main-header navbar navbar-expand-md navbar-light navbar-white bdm-navbar">
+                <div class="container-fluid bdm-shell">
                     <a href="Dashboard.aspx" class="navbar-brand">
-                        <img src="../images/logo.png" style="height: 50px;" />
-                        <span class="brand-text font-weight-light" style="color: white!important;">Client Billing</span>
+                        <span class="bdm-logo"><img src="../images/logo.png" alt="Infinity IPS" /></span>
+                        <span class="bdm-brand-copy"><strong>Infinity IPS</strong><small>Client Billing Portal</small></span>
                     </a>
 
                     <button class="navbar-toggler order-1" type="button" data-toggle="collapse" data-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
                         <span class="navbar-toggler-icon"></span>
                     </button>
 
-                    <div class="collapse navbar-collapse order-3" id="navbarCollapse" style="float: right;">
+                    <div class="bdm-menu order-3" id="navbarCollapse">
                         <!-- Left navbar links -->
                         <ul class="navbar-nav">
                             <li class="nav-item" style="display: none;">
@@ -120,6 +123,9 @@
 
                         <!-- Notifications Dropdown Menu -->
 
+                        <li class="nav-item bdm-user-copy">
+                            <span class="nav-link"><small>Signed in as</small><strong><%=Server.HtmlEncode(DisplayFirstName) %></strong></span>
+                        </li>
                         <li class="nav-item">
                             <a class="nav-link" data-widget="control-sidebar" data-slide="true" href="#" role="button">
                                 <i class="fas fa-bell"></i>
@@ -128,7 +134,7 @@
                         </li>
                         <li class="nav-item dropdown">
                             <a class="nav-link" data-toggle="dropdown" href="#">
-                                <i class="fas fa-cog" style="color: white;"></i>
+                                <i class="fas fa-cog"></i>
 
                             </a>
                             <div class="dropdown-menu dropdown-menu-lg dropdown-menu-right">
@@ -151,14 +157,14 @@
             <!-- Main Sidebar Container -->
 
             <!-- Content Wrapper. Contains page content -->
-            <div class="content-wrapper" style="min-height: 500px!important; height: auto!important;">
+            <div class="content-wrapper">
                 <!-- Content Header (Page header) -->
 
                 <!-- /.content-header -->
 
                 <!-- Main content -->
                 <div class="content">
-                    <div class="container">
+                    <div class="container-fluid bdm-shell bdm-content-shell">
                         <div class="row">
                             <div class="col-lg-12">
                                 <asp:ContentPlaceHolder ID="ContentPlaceHolder1" runat="server">
@@ -175,6 +181,10 @@
                 <!-- /.content -->
             </div>
             <!-- /.content-wrapper -->
+
+            <footer class="main-footer bdm-footer">
+                <div class="bdm-shell"><strong>Infinity IPS</strong><span>Client Billing Portal</span></div>
+            </footer>
 
             <!-- Control Sidebar -->
             <aside class="control-sidebar control-sidebar-dark" style="width: 450px;">

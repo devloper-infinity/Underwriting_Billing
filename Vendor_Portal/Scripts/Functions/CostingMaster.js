@@ -1,4 +1,7 @@
 var cm_initialized = false;
+var cm_headerEditId = 0;
+var cm_costingEditId = 0;
+var cm_subHeaderEditId = 0;
 
 function cm_error(error) {
     $('#load1').hide();
@@ -97,6 +100,16 @@ $(document).on('click', '#cm_projectButton', function (event) {
     $('#cm_projectMenu').hide();
 });
 
+$(document).on('change', '#cm_costAgainst', function () {
+    var domain = this.value === 'Domain';
+    $('#cm_domainGroup').toggle(domain);
+    $('#cm_projectGroup').toggle(this.value === 'Projects');
+    if (domain) {
+        $('#cm_projectList .cm-project-check').prop('checked', false).filter('[value="all"]').prop('checked', true);
+        cm_updateProjectLabel();
+    } else $('#cm_domain').val('');
+});
+
 function cm_loadHeaders() {
     $('#load1').show();
     $.ajax({
@@ -105,9 +118,12 @@ function cm_loadHeaders() {
         success: function (data) {
             var rows = JSON.parse(data.d);
             var select = $('#cm_costingHeader');
+            var parent = $('#cm_subHeaderParent');
             select.empty().append($('<option></option>').val('').text('Select'));
+            parent.empty().append($('<option></option>').val('').text('Select'));
             $.each(rows, function (_, row) {
                 select.append($('<option></option>').val(row.CostingHeaderID).text(row.HeaderName));
+                parent.append($('<option></option>').val(row.CostingHeaderID).text(row.HeaderName));
             });
             if ($.fn.dataTable.isDataTable('#cm_headerTable')) $('#cm_headerTable').DataTable().destroy();
             $('#cm_headerTable').DataTable({
@@ -116,12 +132,64 @@ function cm_loadHeaders() {
                     { data: 'CostingHeaderID', title: 'ID' },
                     { data: 'HeaderName', title: 'Costing Header' },
                     { data: 'CreatedBy', title: 'Created By' },
-                    { data: 'CreatedOn', title: 'Created On' }
+                    { data: 'CreatedOn', title: 'Created On' },
+                    { data: null, title: 'Edit', orderable: false, searchable: false, render: function (_, __, row) {
+                        return '<button type="button" class="btn btn-sm btn-primary cm-edit-header" data-id="' + row.CostingHeaderID + '">Edit</button>';
+                    }}
                 ]
             });
+            cm_loadSubHeaders(0);
             $('#load1').hide();
         }, error: cm_error
     });
+}
+
+function cm_loadSubHeaders(headerId, selectedId) {
+    $.ajax({
+        url: 'CostPerRecordReport.aspx/GetCostingSubHeaders', type: 'POST', dataType: 'json',
+        data: JSON.stringify({ costingHeaderId: headerId || 0 }), contentType: 'application/json; charset=utf-8',
+        success: function (data) {
+            var rows = JSON.parse(data.d);
+            if (headerId) {
+                var select = $('#cm_costingSubHeader').empty();
+                $.each(rows, function (_, row) { select.append($('<option/>').val(row.CostingSubHeaderID).text(row.SubHeaderName)); });
+                $('#cm_subHeaderGroup').toggle(rows.length > 0);
+                if (selectedId) select.val(selectedId);
+                return;
+            }
+            if ($.fn.dataTable.isDataTable('#cm_subHeaderTable')) $('#cm_subHeaderTable').DataTable().destroy();
+            $('#cm_subHeaderTable').DataTable({ data: rows, destroy: true, pageLength: 10, order: [], columns: [
+                { data: 'CostingHeader', title: 'Costing Header' }, { data: 'SubHeaderName', title: 'Sub Header' },
+                { data: 'CreatedBy', title: 'Created By' }, { data: 'CreatedOn', title: 'Created On' },
+                { data: null, title: 'Edit', orderable: false, searchable: false, render: function () { return '<button type="button" class="btn btn-sm btn-primary cm-edit-subheader">Edit</button>'; } }
+            ]});
+        }, error: cm_error
+    });
+}
+
+$(document).on('change', '#cm_costingHeader', function () { cm_loadSubHeaders(parseInt(this.value, 10) || 0); });
+
+function cm_saveSubHeader() {
+    var headerId = parseInt($('#cm_subHeaderParent').val(), 10), name = $.trim($('#cm_subHeaderName').val());
+    if (!headerId || !name) { alert('Please select a Costing Header and enter a Sub Header.'); return false; }
+    $('#load1').show();
+    var request = { costingHeaderId: headerId, subHeaderName: name };
+    if (cm_subHeaderEditId) request.costingSubHeaderId = cm_subHeaderEditId;
+    $.ajax({ url: 'CostPerRecordReport.aspx/' + (cm_subHeaderEditId ? 'UpdateCostingSubHeader' : 'SaveCostingSubHeader'), type: 'POST', dataType: 'json',
+        data: JSON.stringify(request), contentType: 'application/json; charset=utf-8', success: function () {
+            cm_cancelSubHeaderEdit(); cm_loadSubHeaders(0); $('#load1').hide(); alert('Sub Header saved successfully.');
+        }, error: cm_error });
+    return false;
+}
+
+$(document).on('click', '.cm-edit-subheader', function () {
+    var row = $('#cm_subHeaderTable').DataTable().row($(this).closest('tr')).data();
+    cm_subHeaderEditId = parseInt(row.CostingSubHeaderID, 10); $('#cm_subHeaderParent').val(row.CostingHeaderID);
+    $('#cm_subHeaderName').val(row.SubHeaderName).focus(); $('#cm_subHeaderSave').text('Update'); $('#cm_subHeaderCancel').show();
+});
+
+function cm_cancelSubHeaderEdit() {
+    cm_subHeaderEditId = 0; $('#cm_subHeaderParent, #cm_subHeaderName').val(''); $('#cm_subHeaderSave').text('Save'); $('#cm_subHeaderCancel').hide(); return false;
 }
 
 function cm_saveHeader() {
@@ -133,14 +201,31 @@ function cm_saveHeader() {
     }
     $('#load1').show();
     $.ajax({
-        url: 'CostPerRecordReport.aspx/SaveCostingHeader', type: 'POST', dataType: 'json',
-        data: JSON.stringify({ headerName: headerName }), contentType: 'application/json; charset=utf-8',
+        url: 'CostPerRecordReport.aspx/' + (cm_headerEditId ? 'UpdateCostingHeader' : 'SaveCostingHeader'), type: 'POST', dataType: 'json',
+        data: JSON.stringify(cm_headerEditId ? { costingHeaderId: cm_headerEditId, headerName: headerName } : { headerName: headerName }), contentType: 'application/json; charset=utf-8',
         success: function () {
-            $('#cm_headerName').val('');
+            var updated = cm_headerEditId > 0;
+            cm_cancelHeaderEdit();
             cm_loadHeaders();
-            alert('Costing Header saved successfully.');
+            alert('Costing Header ' + (updated ? 'updated' : 'saved') + ' successfully.');
         }, error: cm_error
     });
+    return false;
+}
+
+$(document).on('click', '.cm-edit-header', function () {
+    var row = $('#cm_headerTable').DataTable().row($(this).closest('tr')).data();
+    cm_headerEditId = parseInt(row.CostingHeaderID, 10);
+    $('#cm_headerName').val(row.HeaderName).focus();
+    $('#cm_headerSave').text('Update');
+    $('#cm_headerCancel').show();
+});
+
+function cm_cancelHeaderEdit() {
+    cm_headerEditId = 0;
+    $('#cm_headerName').val('');
+    $('#cm_headerSave').text('Save');
+    $('#cm_headerCancel').hide();
     return false;
 }
 
@@ -148,30 +233,30 @@ function cm_saveCosting() {
     var month = parseInt($('#cm_month').val(), 10);
     var year = parseInt($('#cm_year').val(), 10);
     var costingHeaderId = parseInt($('#cm_costingHeader').val(), 10);
+    var domainName = $('#cm_domain').val();
+    var costingScope = $('#cm_costAgainst').val();
+    var costingSubHeaderId = $('#cm_subHeaderGroup').is(':visible') ? parseInt($('#cm_costingSubHeader').val(), 10) : null;
     var amountText = $.trim($('#cm_amount').val());
     var amount = Number(amountText);
-    var appliesToAllProjects = $('#cm_projectList .cm-project-check[value="all"]').prop('checked') === true;
-    var projectIds = cm_selectedProjects();
-    if (!month || !year || !costingHeaderId || (!appliesToAllProjects && !projectIds.length) || amountText === '' || isNaN(amount) || amount < 0) {
-        alert('Please select Month, Year, Costing Header and Project, and enter a valid non-negative Amount.');
+    var appliesToAllProjects = costingScope === 'Domain' || $('#cm_projectList .cm-project-check[value="all"]').prop('checked') === true;
+    var projectIds = costingScope === 'Domain' ? [] : cm_selectedProjects();
+    if (!month || !year || !costingHeaderId || !costingScope || (costingScope === 'Domain' && !domainName) || ($('#cm_subHeaderGroup').is(':visible') && !costingSubHeaderId) || (costingScope === 'Projects' && !appliesToAllProjects && !projectIds.length) || amountText === '' || isNaN(amount) || amount < 0) {
+        alert('Please complete the costing period, header, Cost Against selection and amount.');
         return false;
     }
     $('#load1').show();
+    var request = { month: month, year: year, costingHeaderId: costingHeaderId, costingSubHeaderId: costingSubHeaderId, costingScope: costingScope, domainName: domainName, amount: amount,
+        appliesToAllProjects: appliesToAllProjects, projectIds: projectIds };
+    if (cm_costingEditId) request.costingId = cm_costingEditId;
     $.ajax({
-        url: 'CostPerRecordReport.aspx/SaveCosting', type: 'POST', dataType: 'json',
-        data: JSON.stringify({ month: month, year: year, costingHeaderId: costingHeaderId, amount: amount,
-            appliesToAllProjects: appliesToAllProjects, projectIds: projectIds }),
+        url: 'CostPerRecordReport.aspx/' + (cm_costingEditId ? 'UpdateCosting' : 'SaveCosting'), type: 'POST', dataType: 'json',
+        data: JSON.stringify(request),
         contentType: 'application/json; charset=utf-8',
         success: function () {
-            $('#cm_month, #cm_year, #cm_costingHeader').val('');
-            $('#cm_amount').val('');
-            $('#cm_projectList .cm-project-check').prop('checked', false);
-            $('#cm_projectList .cm-project-check[value="all"]').prop('checked', true);
-            $('#cm_projectSearch').val('');
-            $('#cm_projectList .cm-project-option').show();
-            cm_updateProjectLabel();
+            var updated = cm_costingEditId > 0;
+            cm_cancelCostingEdit();
             cm_loadEntries();
-            alert('Costing saved successfully.');
+            alert('Costing ' + (updated ? 'updated' : 'saved') + ' successfully.');
         }, error: cm_error
     });
     return false;
@@ -190,9 +275,15 @@ function cm_loadEntries() {
                 columns: [
                     { data: 'Month', title: 'Month' }, { data: 'Year', title: 'Year' },
                     { data: 'CostingHeader', title: 'Costing Header' },
+                    { data: 'SubHeader', title: 'Sub Header', defaultContent: '' },
+                    { data: 'CostingScope', title: 'Cost Against', defaultContent: '' },
+                    { data: 'DomainName', title: 'Domain', defaultContent: '' },
                     { data: 'Projects', title: 'Project #' },
                     { data: 'Amount', title: 'Amount', render: $.fn.dataTable.render.number(',', '.', 2) },
                     { data: 'CreatedBy', title: 'Created By' }, { data: 'CreatedOn', title: 'Created On' },
+                    { data: null, title: 'Edit', orderable: false, searchable: false, render: function () {
+                        return '<button type="button" class="btn btn-sm btn-primary cm-edit-costing">Edit</button>';
+                    }},
                     { data: 'CostingID', title: 'History', orderable: false, render: function (value) {
                         return '<button type="button" class="btn btn-sm btn-info" onclick="cm_showHistory(' + value + ')">View</button>';
                     }}
@@ -201,6 +292,46 @@ function cm_loadEntries() {
             $('#load1').hide();
         }, error: cm_error
     });
+}
+
+$(document).on('click', '.cm-edit-costing', function () {
+    var row = $('#cm_costingTable').DataTable().row($(this).closest('tr')).data();
+    cm_costingEditId = parseInt(row.CostingID, 10);
+    $('#cm_month').val(row.CostingMonth);
+    $('#cm_year').val(row.Year);
+    $('#cm_costingHeader').val(row.CostingHeaderID);
+    $('#cm_domain').val(row.DomainName);
+    $('#cm_costAgainst').val(row.CostingScope || (row.DomainName ? 'Domain' : 'Projects')).trigger('change');
+    cm_loadSubHeaders(parseInt(row.CostingHeaderID, 10), row.CostingSubHeaderID);
+    $('#cm_amount').val(row.Amount);
+    $('#cm_projectList .cm-project-check').prop('checked', false);
+    if (row.AppliesToAllProjects) {
+        $('#cm_projectList .cm-project-check[value="all"]').prop('checked', true);
+    } else {
+        $.each(String(row.ProjectIDs || '').split(','), function (_, id) {
+            $('#cm_projectList .cm-project-check[value="' + id + '"]').prop('checked', true);
+        });
+    }
+    cm_updateProjectLabel();
+    $('#cm_costingSave').text('Update');
+    $('#cm_costingCancel').show();
+    $('#add-costing-tab').tab('show');
+    $('#cm_month').focus();
+});
+
+function cm_cancelCostingEdit() {
+    cm_costingEditId = 0;
+    $('#cm_month, #cm_year, #cm_costingHeader, #cm_domain, #cm_costingSubHeader, #cm_costAgainst').val('');
+    $('#cm_domainGroup, #cm_projectGroup').hide();
+    $('#cm_subHeaderGroup').hide();
+    $('#cm_amount, #cm_projectSearch').val('');
+    $('#cm_projectList .cm-project-check').prop('checked', false);
+    $('#cm_projectList .cm-project-check[value="all"]').prop('checked', true);
+    $('#cm_projectList .cm-project-option').show();
+    cm_updateProjectLabel();
+    $('#cm_costingSave').text('Save');
+    $('#cm_costingCancel').hide();
+    return false;
 }
 
 function cm_showHistory(costingId) {
@@ -216,6 +347,7 @@ function cm_showHistory(costingId) {
                 columns: [
                     { data: 'Action', title: 'Action' }, { data: 'Month', title: 'Month' },
                     { data: 'Year', title: 'Year' }, { data: 'CostingHeader', title: 'Costing Header' },
+                    { data: 'SubHeaderName', title: 'Sub Header', defaultContent: '' }, { data: 'CostingScope', title: 'Cost Against', defaultContent: '' }, { data: 'DomainName', title: 'Domain', defaultContent: '' },
                     { data: 'Projects', title: 'Project #' },
                     { data: 'Amount', title: 'Amount', render: $.fn.dataTable.render.number(',', '.', 2) },
                     { data: 'ChangedBy', title: 'Changed By' }, { data: 'ChangedOn', title: 'Changed On' }

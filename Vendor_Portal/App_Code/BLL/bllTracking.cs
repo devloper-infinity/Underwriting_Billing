@@ -575,14 +575,36 @@ namespace Vendor_Portal.App_Code.BLL
         {
             return dalTracking.InsertCostingHeader(headerName, createdBy);
         }
+        public int UpdateCostingHeader(int costingHeaderId, string headerName, string modifiedBy)
+        {
+            return dalTracking.UpdateCostingHeader(costingHeaderId, headerName, modifiedBy);
+        }
+        public DataTable GetCostingSubHeaders(int costingHeaderId)
+        {
+            return dalTracking.GetCostingSubHeaders(costingHeaderId);
+        }
+        public int InsertCostingSubHeader(int costingHeaderId, string name, string createdBy)
+        {
+            return dalTracking.InsertCostingSubHeader(costingHeaderId, name, createdBy);
+        }
+        public int UpdateCostingSubHeader(int id, int costingHeaderId, string name, string modifiedBy)
+        {
+            return dalTracking.UpdateCostingSubHeader(id, costingHeaderId, name, modifiedBy);
+        }
         public DataTable GetCostingEntries()
         {
             return dalTracking.GetCostingEntries();
         }
-        public int InsertCosting(int month, int year, int costingHeaderId, decimal amount,
+        public int InsertCosting(int month, int year, int costingHeaderId, int? costingSubHeaderId, string costingScope, string domainName, decimal amount,
             bool appliesToAllProjects, IList<KeyValuePair<int, string>> projects, string createdBy)
         {
-            return dalTracking.InsertCosting(month, year, costingHeaderId, amount, appliesToAllProjects, projects, createdBy);
+            return dalTracking.InsertCosting(month, year, costingHeaderId, costingSubHeaderId, costingScope, domainName, amount, appliesToAllProjects, projects, createdBy);
+        }
+        public int UpdateCosting(int costingId, int month, int year, int costingHeaderId, int? costingSubHeaderId, string costingScope, string domainName, decimal amount,
+            bool appliesToAllProjects, IList<KeyValuePair<int, string>> projects, string modifiedBy)
+        {
+            return dalTracking.UpdateCosting(costingId, month, year, costingHeaderId, costingSubHeaderId, costingScope, domainName, amount,
+                appliesToAllProjects, projects, modifiedBy);
         }
         public DataTable GetCostingReportRows(int month, int year)
         {

@@ -112,14 +112,15 @@ RETURN
         GROUP BY i.InvoiceType, ISNULL(x.ERPProcess,N''), ISNULL(x.ProjectNo,N'')
 
         UNION ALL
-        SELECT h.HeaderName, N'', CASE WHEN c.AppliesToAllProjects=1 THEN N'' ELSE ISNULL(cp.ProjectName,N'') END,
+        SELECT h.HeaderName, N'', CASE WHEN c.CostingScope=N'Domain' OR (c.CostingScope IS NULL AND c.DomainName IS NOT NULL) THEN ISNULL(c.DomainName,N'') WHEN c.AppliesToAllProjects=1 THEN N'' ELSE ISNULL(cp.ProjectName,N'') END,
                SUM(ISNULL(c.Amount,0)), 0, 0, 0
         FROM dbo.CostingHeaderMaster h
         LEFT JOIN dbo.CostingMaster c ON c.CostingHeaderID=h.CostingHeaderID AND c.IsActive=1
              AND TRY_CONVERT(DATE,CONCAT(c.CostingYear,RIGHT(N'0'+CONVERT(NVARCHAR(2),c.CostingMonth),2),N'01'),112) BETWEEN @FromDate AND @ToDate
         LEFT JOIN dbo.CostingMasterProject cp ON cp.CostingID=c.CostingID
-        WHERE h.IsActive=1
-        GROUP BY h.HeaderName, CASE WHEN c.AppliesToAllProjects=1 THEN N'' ELSE ISNULL(cp.ProjectName,N'') END
+        WHERE h.IsActive=1 AND h.HeaderName NOT IN
+              (N'Production + Mgmt salary',N'India Sales salary',N'Support Salary',N'Total cost of HR',N'Total')
+        GROUP BY h.HeaderName, CASE WHEN c.CostingScope=N'Domain' OR (c.CostingScope IS NULL AND c.DomainName IS NOT NULL) THEN ISNULL(c.DomainName,N'') WHEN c.AppliesToAllProjects=1 THEN N'' ELSE ISNULL(cp.ProjectName,N'') END
     )
     SELECT Vendor, Process, Project,
            CONVERT(DECIMAL(18,2),SUM(USD)) USD,
@@ -147,6 +148,42 @@ BEGIN
 
     SELECT * INTO #A FROM dbo.ufn_AllVendorCostingNormalized(@PeriodAFrom,@PeriodATo);
     SELECT * INTO #B FROM dbo.ufn_AllVendorCostingNormalized(@PeriodBFrom,@PeriodBTo);
+
+    CREATE TABLE #SalaryCost(Vendor NVARCHAR(200),ERPProcess NVARCHAR(200),Project NVARCHAR(200),Amount DECIMAL(18,2),Volume BIGINT);
+    DECLARE @SalaryMonth DATE,@SalaryMonthName NVARCHAR(100),@SalaryYear NVARCHAR(100);
+    DECLARE SalaryMonthsA CURSOR LOCAL FAST_FORWARD FOR
+        SELECT DATEADD(MONTH,ROW_NUMBER() OVER(ORDER BY (SELECT NULL))-1,DATEFROMPARTS(YEAR(@PeriodAFrom),MONTH(@PeriodAFrom),1))
+        FROM sys.all_objects
+        ORDER BY 1 OFFSET 0 ROWS FETCH NEXT DATEDIFF(MONTH,@PeriodAFrom,@PeriodATo)+1 ROWS ONLY;
+    OPEN SalaryMonthsA; FETCH NEXT FROM SalaryMonthsA INTO @SalaryMonth;
+    WHILE @@FETCH_STATUS=0
+    BEGIN
+        SET @SalaryMonthName=DATENAME(MONTH,@SalaryMonth); SET @SalaryYear=CONVERT(NVARCHAR(100),YEAR(@SalaryMonth));
+        INSERT #SalaryCost EXEC InfinityERP.dbo.GetCostPerRecordReport_NewERP_VendorReport @SalaryMonthName,@SalaryYear,N'Costing';
+        FETCH NEXT FROM SalaryMonthsA INTO @SalaryMonth;
+    END
+    CLOSE SalaryMonthsA; DEALLOCATE SalaryMonthsA;
+    INSERT #A(Vendor,Process,Project,USD,Volume,Rate,Labour,Total)
+    SELECT Vendor,ERPProcess,Project,SUM(Amount),SUM(Volume),CASE WHEN SUM(Volume)=0 THEN 0 ELSE SUM(Amount)/SUM(Volume) END,0,SUM(Amount) FROM #SalaryCost GROUP BY Vendor,ERPProcess,Project;
+
+    TRUNCATE TABLE #SalaryCost;
+    IF @PeriodBFrom IS NOT NULL
+    BEGIN
+        DECLARE SalaryMonthsB CURSOR LOCAL FAST_FORWARD FOR
+            SELECT DATEADD(MONTH,ROW_NUMBER() OVER(ORDER BY (SELECT NULL))-1,DATEFROMPARTS(YEAR(@PeriodBFrom),MONTH(@PeriodBFrom),1))
+            FROM sys.all_objects
+            ORDER BY 1 OFFSET 0 ROWS FETCH NEXT DATEDIFF(MONTH,@PeriodBFrom,@PeriodBTo)+1 ROWS ONLY;
+        OPEN SalaryMonthsB; FETCH NEXT FROM SalaryMonthsB INTO @SalaryMonth;
+        WHILE @@FETCH_STATUS=0
+        BEGIN
+            SET @SalaryMonthName=DATENAME(MONTH,@SalaryMonth); SET @SalaryYear=CONVERT(NVARCHAR(100),YEAR(@SalaryMonth));
+            INSERT #SalaryCost EXEC InfinityERP.dbo.GetCostPerRecordReport_NewERP_VendorReport @SalaryMonthName,@SalaryYear,N'Costing';
+            FETCH NEXT FROM SalaryMonthsB INTO @SalaryMonth;
+        END
+        CLOSE SalaryMonthsB; DEALLOCATE SalaryMonthsB;
+        INSERT #B(Vendor,Process,Project,USD,Volume,Rate,Labour,Total)
+        SELECT Vendor,ERPProcess,Project,SUM(Amount),SUM(Volume),CASE WHEN SUM(Volume)=0 THEN 0 ELSE SUM(Amount)/SUM(Volume) END,0,SUM(Amount) FROM #SalaryCost GROUP BY Vendor,ERPProcess,Project;
+    END
 
     SELECT COALESCE(a.Vendor,b.Vendor) Vendor,COALESCE(a.Process,b.Process) Process,COALESCE(a.Project,b.Project) Project,
            a.USD PeriodA_USD,b.USD PeriodB_USD,ISNULL(a.USD,0)-ISNULL(b.USD,0) Difference_USD,
@@ -190,6 +227,24 @@ CREATE PROCEDURE dbo.usp_AllVendorCostingInvoiceDetails
 AS
 BEGIN
     SET NOCOUNT ON;
+    IF @Vendor IN(N'Production + Mgmt salary',N'India Sales salary',N'Support Salary',N'Total cost of HR')
+    BEGIN
+        CREATE TABLE #EmployeeSalaryDetails(Code NVARCHAR(100),Name NVARCHAR(300),Department NVARCHAR(200),Domain NVARCHAR(200),Subdomain NVARCHAR(200),Project NVARCHAR(200),Process NVARCHAR(300),[Gross Salary] DECIMAL(18,2),[Gross Pay] DECIMAL(18,2),Incentive DECIMAL(18,2),ESI DECIMAL(18,2),PF DECIMAL(18,2),[Leave Encashment] DECIMAL(18,2),[Total Salary] DECIMAL(18,2),Ratio DECIMAL(18,4),Weightage DECIMAL(18,2),[Net Outgoing] DECIMAL(18,2));
+        DECLARE @DetailMonth DATE,@DetailMonthName NVARCHAR(100),@DetailYear NVARCHAR(100);
+        DECLARE DetailMonths CURSOR LOCAL FAST_FORWARD FOR
+            SELECT DATEADD(MONTH,ROW_NUMBER() OVER(ORDER BY (SELECT NULL))-1,DATEFROMPARTS(YEAR(@FromDate),MONTH(@FromDate),1)) FROM sys.all_objects
+            ORDER BY 1 OFFSET 0 ROWS FETCH NEXT DATEDIFF(MONTH,@FromDate,@ToDate)+1 ROWS ONLY;
+        OPEN DetailMonths; FETCH NEXT FROM DetailMonths INTO @DetailMonth;
+        WHILE @@FETCH_STATUS=0
+        BEGIN
+            SET @DetailMonthName=DATENAME(MONTH,@DetailMonth); SET @DetailYear=CONVERT(NVARCHAR(100),YEAR(@DetailMonth));
+            INSERT #EmployeeSalaryDetails EXEC InfinityERP.dbo.GetCostPerRecordReport_NewERP_VendorReport @DetailMonthName,@DetailYear,N'CostingDetails',@Vendor,@Project;
+            FETCH NEXT FROM DetailMonths INTO @DetailMonth;
+        END
+        CLOSE DetailMonths; DEALLOCATE DetailMonths;
+        SELECT * FROM #EmployeeSalaryDetails ORDER BY Name,Project,Process;
+        RETURN;
+    END
     DECLARE @Rate DECIMAL(18,2)=(SELECT TOP(1) TRY_CONVERT(DECIMAL(18,2),Rate) FROM [Infinity-UWVendorBilling].dbo.VenodrRateConfigurationMaster WHERE Vendor=@Vendor OR (@Vendor=N'LoanLogics' AND Vendor=N'Loan Logics') ORDER BY TRY_CONVERT(DATE,FormDate) DESC);
     IF @Vendor=N'Scienna'
     BEGIN
@@ -219,7 +274,7 @@ BEGIN
         SELECT N'Invoice' DetailType,i.InvoiceID,i.Month,i.Year,N'561' Project,i.Delay Reference,N'Remote UW' Description,TRY_CONVERT(DECIMAL(18,2),REPLACE(i.IsApproved1Remark,N',',N'')) Volume,CASE WHEN ISNULL(TRY_CONVERT(DECIMAL(18,2),REPLACE(i.IsApproved1Remark,N',',N'')),0)=0 THEN NULL ELSE TRY_CONVERT(DECIMAL(18,2),REPLACE(REPLACE(i.Balance,N'$',N''),N',',N''))/TRY_CONVERT(DECIMAL(18,2),REPLACE(i.IsApproved1Remark,N',',N'')) END Rate,TRY_CONVERT(DECIMAL(18,2),REPLACE(REPLACE(i.Balance,N'$',N''),N',',N'')) Amount
         FROM [Infinity-UWVendorBilling].dbo.Infinity_InvoiceDetails i WHERE i.InvoiceType=N'Remote UW' AND LTRIM(RTRIM(i.Delay))=@Vendor AND TRY_CONVERT(DATE,CONCAT(i.Year,RIGHT(N'0'+CONVERT(NVARCHAR(2),CASE i.Month WHEN N'January' THEN 1 WHEN N'February' THEN 2 WHEN N'March' THEN 3 WHEN N'April' THEN 4 WHEN N'May' THEN 5 WHEN N'June' THEN 6 WHEN N'July' THEN 7 WHEN N'August' THEN 8 WHEN N'September' THEN 9 WHEN N'October' THEN 10 WHEN N'November' THEN 11 WHEN N'December' THEN 12 END),2),N'01'),112) BETWEEN @FromDate AND @ToDate; RETURN;
     END
-    SELECT N'Costing' DetailType,c.CostingID InvoiceID,DATENAME(MONTH,DATEFROMPARTS(c.CostingYear,c.CostingMonth,1)) Month,c.CostingYear Year,CASE WHEN c.AppliesToAllProjects=1 THEN N'All Projects' ELSE cp.ProjectName END Project,h.HeaderName Reference,N'Configured Cost' Description,CONVERT(DECIMAL(18,2),1) Volume,CONVERT(DECIMAL(18,2),c.Amount) Rate,CONVERT(DECIMAL(18,2),c.Amount) Amount FROM dbo.CostingMaster c INNER JOIN dbo.CostingHeaderMaster h ON h.CostingHeaderID=c.CostingHeaderID LEFT JOIN dbo.CostingMasterProject cp ON cp.CostingID=c.CostingID WHERE h.HeaderName=@Vendor AND c.IsActive=1 AND (@Project IS NULL OR @Project=N'' OR cp.ProjectName=@Project) AND TRY_CONVERT(DATE,CONCAT(c.CostingYear,RIGHT(N'0'+CONVERT(NVARCHAR(2),c.CostingMonth),2),N'01'),112) BETWEEN @FromDate AND @ToDate;
+    SELECT N'Costing' DetailType,c.CostingID InvoiceID,DATENAME(MONTH,DATEFROMPARTS(c.CostingYear,c.CostingMonth,1)) Month,c.CostingYear Year,CASE WHEN c.CostingScope=N'Domain' OR (c.CostingScope IS NULL AND c.DomainName IS NOT NULL) THEN c.DomainName WHEN c.AppliesToAllProjects=1 THEN N'All Projects' ELSE cp.ProjectName END Project,c.DomainName Domain,sh.SubHeaderName SubHeader,h.HeaderName Reference,N'Configured Cost' Description,CONVERT(DECIMAL(18,2),1) Volume,CONVERT(DECIMAL(18,2),c.Amount) Rate,CONVERT(DECIMAL(18,2),c.Amount) Amount FROM dbo.CostingMaster c INNER JOIN dbo.CostingHeaderMaster h ON h.CostingHeaderID=c.CostingHeaderID LEFT JOIN dbo.CostingSubHeaderMaster sh ON sh.CostingSubHeaderID=c.CostingSubHeaderID LEFT JOIN dbo.CostingMasterProject cp ON cp.CostingID=c.CostingID WHERE h.HeaderName=@Vendor AND c.IsActive=1 AND (@Project IS NULL OR @Project=N'' OR cp.ProjectName=@Project OR c.DomainName=@Project) AND TRY_CONVERT(DATE,CONCAT(c.CostingYear,RIGHT(N'0'+CONVERT(NVARCHAR(2),c.CostingMonth),2),N'01'),112) BETWEEN @FromDate AND @ToDate ORDER BY sh.SubHeaderName,c.CostingYear,c.CostingMonth;
 END;
 GO
 

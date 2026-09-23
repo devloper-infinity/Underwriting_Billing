@@ -849,6 +849,7 @@
     <Content Include="crystalreportviewers13\urlreporting\appletviewer.js" />
     <Content Include="dist\css\adminlte.css" />
     <Content Include="dist\css\adminlte.min.css" />
+    <Content Include="dist\css\bdm-portal.css" />
     <Content Include="dist\css\alt\adminlte.components.css" />
     <Content Include="dist\css\alt\adminlte.components.min.css" />
     <Content Include="dist\css\alt\adminlte.core.css" />

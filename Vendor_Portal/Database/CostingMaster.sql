@@ -41,6 +41,36 @@ BEGIN
     );
 END;
 
+IF OBJECT_ID(N'dbo.CostingSubHeaderMaster', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.CostingSubHeaderMaster
+    (
+        CostingSubHeaderID INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_CostingSubHeaderMaster PRIMARY KEY,
+        CostingHeaderID INT NOT NULL,
+        SubHeaderName NVARCHAR(200) NOT NULL,
+        IsActive BIT NOT NULL CONSTRAINT DF_CostingSubHeaderMaster_IsActive DEFAULT (1),
+        CreatedBy NVARCHAR(100) NOT NULL,
+        CreatedOn DATETIME2(0) NOT NULL CONSTRAINT DF_CostingSubHeaderMaster_CreatedOn DEFAULT (SYSDATETIME()),
+        ModifiedBy NVARCHAR(100) NULL,
+        ModifiedOn DATETIME2(0) NULL,
+        CONSTRAINT FK_CostingSubHeaderMaster_Header FOREIGN KEY (CostingHeaderID) REFERENCES dbo.CostingHeaderMaster(CostingHeaderID),
+        CONSTRAINT UQ_CostingSubHeaderMaster UNIQUE (CostingHeaderID, SubHeaderName)
+    );
+    CREATE INDEX IX_CostingSubHeaderMaster_Header ON dbo.CostingSubHeaderMaster(CostingHeaderID, IsActive);
+END;
+
+IF COL_LENGTH(N'dbo.CostingMaster', N'DomainName') IS NULL
+    ALTER TABLE dbo.CostingMaster ADD DomainName NVARCHAR(100) NULL;
+IF COL_LENGTH(N'dbo.CostingMaster', N'CostingScope') IS NULL
+    ALTER TABLE dbo.CostingMaster ADD CostingScope NVARCHAR(20) NULL;
+
+IF COL_LENGTH(N'dbo.CostingMaster', N'CostingSubHeaderID') IS NULL
+BEGIN
+    ALTER TABLE dbo.CostingMaster ADD CostingSubHeaderID INT NULL;
+    ALTER TABLE dbo.CostingMaster ADD CONSTRAINT FK_CostingMaster_SubHeader
+        FOREIGN KEY (CostingSubHeaderID) REFERENCES dbo.CostingSubHeaderMaster(CostingSubHeaderID);
+END;
+
 IF COL_LENGTH(N'dbo.CostingMaster', N'AppliesToAllProjects') IS NULL
 BEGIN
     ALTER TABLE dbo.CostingMaster ADD AppliesToAllProjects BIT NOT NULL
@@ -88,6 +118,13 @@ BEGIN
         ON dbo.CostingMasterHistory (CostingID, ChangedOn DESC);
 END;
 
+IF COL_LENGTH(N'dbo.CostingMasterHistory', N'DomainName') IS NULL
+    ALTER TABLE dbo.CostingMasterHistory ADD DomainName NVARCHAR(100) NULL;
+IF COL_LENGTH(N'dbo.CostingMasterHistory', N'CostingScope') IS NULL
+    ALTER TABLE dbo.CostingMasterHistory ADD CostingScope NVARCHAR(20) NULL;
+IF COL_LENGTH(N'dbo.CostingMasterHistory', N'SubHeaderName') IS NULL
+    ALTER TABLE dbo.CostingMasterHistory ADD SubHeaderName NVARCHAR(200) NULL;
+
 IF OBJECT_ID(N'dbo.TR_CostingMaster_Audit', N'TR') IS NOT NULL
     DROP TRIGGER dbo.TR_CostingMaster_Audit;
 GO
@@ -102,7 +139,7 @@ BEGIN
     INSERT dbo.CostingMasterHistory
     (
         CostingID, CostingMonth, CostingYear, CostingHeaderID, HeaderName,
-        Amount, IsActive, ActionName, ChangedBy, ChangedOn
+        Amount, IsActive, ActionName, ChangedBy, ChangedOn, DomainName, SubHeaderName, CostingScope
     )
     SELECT
         COALESCE(i.CostingID, d.CostingID),
@@ -118,11 +155,16 @@ BEGIN
             ELSE N'DELETE'
         END,
         COALESCE(i.ModifiedBy, i.CreatedBy, d.ModifiedBy, d.CreatedBy, N'System'),
-        SYSDATETIME()
+        SYSDATETIME(),
+        COALESCE(i.DomainName, d.DomainName),
+        sh.SubHeaderName,
+        COALESCE(i.CostingScope, d.CostingScope)
     FROM inserted i
     FULL OUTER JOIN deleted d ON d.CostingID = i.CostingID
     INNER JOIN dbo.CostingHeaderMaster h
-        ON h.CostingHeaderID = COALESCE(i.CostingHeaderID, d.CostingHeaderID);
+        ON h.CostingHeaderID = COALESCE(i.CostingHeaderID, d.CostingHeaderID)
+    LEFT JOIN dbo.CostingSubHeaderMaster sh
+        ON sh.CostingSubHeaderID = COALESCE(i.CostingSubHeaderID, d.CostingSubHeaderID);
 END;
 GO
 

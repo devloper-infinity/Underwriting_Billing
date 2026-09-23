@@ -1,7 +1,7 @@
 ﻿<%@ Page Title="" Language="C#" MasterPageFile="~/BDM/BDM.Master" AutoEventWireup="true" CodeBehind="CostPerRecordReport.aspx.cs" Inherits="Vendor_Portal.BDM.CostPerRecordReport" %>
 
 <asp:Content ID="Content1" ContentPlaceHolderID="head" runat="server">
-    <script src="../Scripts/Functions/CostingMaster.js?v=1"></script>
+    <script src="../Scripts/Functions/CostingMaster.js?v=4"></script>
     <style>
         .loading {
             display: none;
@@ -233,11 +233,19 @@
                                                         <input type="text" id="cm_headerName" class="form-control" maxlength="200" placeholder="Enter Costing Header" />
                                                     </div>
                                                     <div class="col-md-2 form-group d-flex align-items-end">
-                                                        <button type="button" class="btn btn-primary" onclick="return cm_saveHeader();">Save</button>
+                                                        <button type="button" id="cm_headerSave" class="btn btn-primary" onclick="return cm_saveHeader();">Save</button>
+                                                        <button type="button" id="cm_headerCancel" class="btn btn-secondary ml-2" style="display:none" onclick="return cm_cancelHeaderEdit();">Cancel</button>
                                                     </div>
                                                 </div>
                                                 <hr />
                                                 <table class="table table-bordered" id="cm_headerTable" style="width: 100%;"></table>
+                                                <hr />
+                                                <div class="row costing-form">
+                                                    <div class="col-md-4 form-group"><label for="cm_subHeaderParent">Costing Header</label><select id="cm_subHeaderParent" class="form-control"><option value="">Select</option></select></div>
+                                                    <div class="col-md-5 form-group"><label for="cm_subHeaderName">Sub Header (Optional)</label><input type="text" id="cm_subHeaderName" class="form-control" maxlength="200" placeholder="Enter Sub Header" /></div>
+                                                    <div class="col-md-3 form-group d-flex align-items-end"><button type="button" id="cm_subHeaderSave" class="btn btn-primary" onclick="return cm_saveSubHeader();">Save</button><button type="button" id="cm_subHeaderCancel" class="btn btn-secondary ml-2" style="display:none" onclick="return cm_cancelSubHeaderEdit();">Cancel</button></div>
+                                                </div>
+                                                <table class="table table-bordered" id="cm_subHeaderTable" style="width:100%;"></table>
                                             </div>
                                             <div class="tab-pane fade" id="add-costing-pane" role="tabpanel">
                                                 <div class="row costing-form">
@@ -261,7 +269,19 @@
                                                         <label for="cm_costingHeader">Costing Header</label>
                                                         <select id="cm_costingHeader" class="form-control"><option value="">Select</option></select>
                                                     </div>
-                                                    <div class="col-md-3 form-group cm-project-picker">
+                                                    <div id="cm_subHeaderGroup" class="col-md-2 form-group" style="display:none">
+                                                        <label for="cm_costingSubHeader">Sub Header</label>
+                                                        <select id="cm_costingSubHeader" class="form-control"></select>
+                                                    </div>
+                                                    <div class="col-md-2 form-group">
+                                                        <label for="cm_costAgainst">Cost Against</label>
+                                                        <select id="cm_costAgainst" class="form-control"><option value="">Select</option><option value="Domain">Domain</option><option value="Projects">Project(s)</option></select>
+                                                    </div>
+                                                    <div id="cm_domainGroup" class="col-md-2 form-group" style="display:none">
+                                                        <label for="cm_domain">Domain</label>
+                                                        <select id="cm_domain" class="form-control"><option value="">Select</option><option>Servicing-561</option><option>Servicing-667</option><option>Infinity-Credit</option><option>Canopy-Credit</option></select>
+                                                    </div>
+                                                    <div id="cm_projectGroup" class="col-md-3 form-group cm-project-picker" style="display:none">
                                                         <label for="cm_projectButton">Project #</label>
                                                         <button type="button" id="cm_projectButton" class="form-control text-left">All Projects</button>
                                                         <div id="cm_projectMenu" class="cm-project-menu">
@@ -274,7 +294,8 @@
                                                         <input type="number" id="cm_amount" class="form-control" min="0" step="0.01" placeholder="0.00" />
                                                     </div>
                                                     <div class="col-md-1 form-group d-flex align-items-end">
-                                                        <button type="button" class="btn btn-primary" onclick="return cm_saveCosting();">Save</button>
+                                                        <button type="button" id="cm_costingSave" class="btn btn-primary" onclick="return cm_saveCosting();">Save</button>
+                                                        <button type="button" id="cm_costingCancel" class="btn btn-secondary ml-2" style="display:none" onclick="return cm_cancelCostingEdit();">Cancel</button>
                                                     </div>
                                                 </div>
                                                 <hr />

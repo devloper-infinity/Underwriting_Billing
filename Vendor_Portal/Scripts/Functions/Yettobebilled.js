@@ -390,7 +390,7 @@ function senttoclient_downloadpdf(index) {
 
 function geninvoice_OnSuccess(result) {
     $("#waitingpanel").modal("hide");
-    downloadreport_senttoclient();
+    showReportPreview(result, "PDF Invoice Preview");
     return false;
 }
 function geninvoice_OnError(error) {
@@ -836,7 +836,7 @@ function senttoaccount_previewinvoice() {
 }
 function geninv_OnSuccess(result) {
     $("#waitingpanel").modal("hide");
-    downloadreport();
+    showReportPreview(result, "Invoice Preview");
     //alert(result);
     //if (result > 0) {
     //    return false;

@@ -63,7 +63,7 @@ namespace Vendor_Portal.BDM
         }
 
         [WebMethod]
-        public static int GenerateInvoice(int ProjectID, string BillingPeriod, string Slot, int InvoiceId)
+        public static string GenerateInvoice(int ProjectID, string BillingPeriod, string Slot, int InvoiceId)
         {
             int returnvalue = 0;
             DataTable dt = new bllTracking().GetProjectClientConfiguration(ProjectID, InvoiceId);
@@ -229,11 +229,11 @@ namespace Vendor_Portal.BDM
                     ReportFilePath = filePath;
                     ReportFileName = filename + ".pdf";
 
-                    rpt.ExportToHttpResponse(ExportFormatType.PortableDocFormat, HttpContext.Current.Response, true, filename);
+                    return "ReportPreview.aspx?kind=pdf&file=" + HttpUtility.UrlEncode(ReportFileName);
                 }
                 catch (Exception ex) { throw ex; }
             }
-            return returnvalue;
+            return "";
         }
 
         protected void btn1_Click(object sender, EventArgs e)

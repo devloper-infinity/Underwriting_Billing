@@ -19,7 +19,7 @@
     <link rel="stylesheet" href="../plugins/datatables-fixedheader/css/fixedHeader.bootstrap4.min.css">
     <!-- Theme style -->
     <link rel="stylesheet" href="../dist/css/adminlte.min.css">
-    <link rel="stylesheet" href="../dist/css/bdm-portal.css?v=3">
+    <link rel="stylesheet" href="../dist/css/bdm-portal.css?v=5">
     <asp:ContentPlaceHolder ID="head" runat="server">
     </asp:ContentPlaceHolder>
     <script>
@@ -38,7 +38,7 @@
                 document.getElementById("othercosting").style.display = 'none';
                 document.getElementById("importexcel").style.display = 'none';
                 document.getElementById("secbilling").style.display = 'none';
-                document.getElementById("mergebilling").style.display = '';
+                document.getElementById("mergebilling").style.display = 'none';
                 document.getElementById("payingEntity").style.display = '';
             }
         });
@@ -49,7 +49,7 @@
         <asp:ToolkitScriptManager ID="ToolkitScriptManager1" runat="server" EnablePageMethods="true">
             <Scripts>
                 <asp:ScriptReference Path="~/Scripts/Functions/ProjectDetailsMaster.js?v=1" />
-                <asp:ScriptReference Path="~/Scripts/Functions/Yettobebilled.js?v=1" />
+                <asp:ScriptReference Path="~/Scripts/Functions/Yettobebilled.js?v=2" />
                 <asp:ScriptReference Path="~/Scripts/Functions/PriceConfiguration.js?v=1" />
                 <asp:ScriptReference Path="~/Scripts/Functions/Reports.js?v=1" />
                 <asp:ScriptReference Path="~/Scripts/Functions/MergedBilling.js?v=1" />
@@ -63,7 +63,7 @@
                 <div class="container-fluid bdm-shell">
                     <a href="Dashboard.aspx" class="navbar-brand">
                         <span class="bdm-logo"><img src="../images/logo.png" alt="Infinity IPS" /></span>
-                        <span class="bdm-brand-copy"><strong>Infinity IPS</strong><small>Client Billing Portal</small></span>
+                        <%--<span class="bdm-brand-copy"><strong>Infinity IPS</strong><small>Client Billing Portal</small></span>--%>
                     </a>
 
                     <button class="navbar-toggler order-1" type="button" data-toggle="collapse" data-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
@@ -93,7 +93,7 @@
                                 <a id="pmutilities" href="#" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" class="nav-link dropdown-toggle">Billing</a>
                                 <ul aria-labelledby="pmutilities" class="dropdown-menu border-0 shadow">
                                     <li><a href="Yettobebilled_Revised.aspx" class="dropdown-item">Invoices to be submitted</a></li>
-                                    <li id="mergebilling" runat="server"><a href="MergedBilling.aspx" class="dropdown-item">561 Billing</a></li>
+                                    <li id="mergebilling" runat="server" style="display:none;"><a href="MergedBilling.aspx" class="dropdown-item">561 Billing</a></li>
                                     <li><a href="SentToClient.aspx" class="dropdown-item">Invoice issued to client</a></li>
                                     <li class="dropdown-divider"></li>
                                 </ul>
@@ -124,7 +124,7 @@
                         <!-- Notifications Dropdown Menu -->
 
                         <li class="nav-item bdm-user-copy">
-                            <span class="nav-link"><small>Signed in as</small><strong><%=Server.HtmlEncode(DisplayFirstName) %></strong></span>
+                            <span class="nav-link"><small>Signed in as</small>&nbsp;<strong><%=Server.HtmlEncode(DisplayFirstName) %></strong></span>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link" data-widget="control-sidebar" data-slide="true" href="#" role="button">
@@ -133,16 +133,16 @@
                             </a>
                         </li>
                         <li class="nav-item dropdown">
-                            <a class="nav-link" data-toggle="dropdown" href="#">
+                            <a class="nav-link" data-toggle="dropdown" href="#" style="color:rgba(0, 0, 0, .5)!important;">
                                 <i class="fas fa-cog"></i>
 
                             </a>
                             <div class="dropdown-menu dropdown-menu-lg dropdown-menu-right">
                                 <span class="dropdown-header">Settings</span>
-                                <div class="dropdown-divider"></div>
+                                <%--<div class="dropdown-divider"></div>
                                 <a href="ChangePassword.aspx" class="dropdown-item">
                                     <i class="fas fa-envelope mr-2"></i>Change Password             
-                                </a>
+                                </a>--%>
                                 <div class="dropdown-divider"></div>
                                 <a href="../Logout.aspx" class="dropdown-item">
                                     <i class="fas fa-sign-out-alt mr-2"></i>Logout

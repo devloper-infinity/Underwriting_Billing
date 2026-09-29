@@ -228,6 +228,7 @@
     <Content Include="BDM\ProjectDetails.aspx" />
     <Content Include="BDM\ProjectDetailsMaster.aspx" />
     <Content Include="BDM\RateRevisionConfiguration.aspx" />
+    <Content Include="BDM\ReportPreview.aspx" />
     <Content Include="BDM\SecuritizationBilling_Revised.aspx" />
     <Content Include="BDM\SecuritizationBilling.aspx" />
     <Content Include="BDM\SentToAccounts_Revised.aspx" />

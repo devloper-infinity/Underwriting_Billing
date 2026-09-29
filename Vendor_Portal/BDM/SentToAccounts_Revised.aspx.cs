@@ -180,7 +180,7 @@ namespace Vendor_Portal.BDM
         }
 
         [WebMethod]
-        public static int GenerateInvoice(string Amount)
+        public static string GenerateInvoice(string Amount)
         {
             int returnvalue = 1;
             CrystalReportViewer crReport = new CrystalReportViewer();
@@ -358,9 +358,7 @@ namespace Vendor_Portal.BDM
             ReportFilePath = filePath;
             ReportFileName = filename + ".pdf";
 
-            rpt.ExportToHttpResponse(ExportFormatType.PortableDocFormat, HttpContext.Current.Response, true, filename);
-
-            return returnvalue;
+            return "ReportPreview.aspx?kind=pdf&file=" + HttpUtility.UrlEncode(ReportFileName);
 
         }
 

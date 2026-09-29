@@ -31,9 +31,9 @@
     background: var(--bdm-surface) !important;
     box-shadow: var(--bdm-shadow);
 }
-.bdm-portal .navbar-brand { display: flex; align-items: center; min-width: 245px; margin-right: 20px; padding: 8px 0; }
-.bdm-portal .bdm-logo { display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; margin-right: 11px; border-radius: 8px; background: #eef5fc; overflow: hidden; }
-.bdm-portal .bdm-logo img { max-width: 36px; max-height: 36px; object-fit: contain; }
+.bdm-portal .navbar-brand { display: flex; align-items: center; min-width: 120px; margin-right: 20px; padding: 3px 0; }
+.bdm-portal .bdm-logo { display: inline-flex; align-items: center; justify-content: center; width: 110px; height: 60px; overflow: hidden; }
+.bdm-portal .bdm-logo img { display: block; width: 100%; height: 100%; object-fit: contain; }
 .bdm-portal .bdm-brand-copy { display: flex; flex-direction: column; line-height: 1.1; color: var(--bdm-text); }
 .bdm-portal .bdm-brand-copy strong { font-size: 16px; font-weight: 700; letter-spacing: .01em; }
 .bdm-portal .bdm-brand-copy small { margin-top: 4px; color: var(--bdm-muted); font-size: 11px; }
@@ -117,6 +117,15 @@
 .bdm-portal .modal-title { font-size: 16px; font-weight: 700; }
 .bdm-portal .alert { border: 0; border-radius: var(--bdm-radius); }
 .bdm-portal .control-sidebar { background: #182433; box-shadow: -8px 0 24px rgba(24,36,51,.2); }
+.bdm-portal .loading { position: fixed !important; inset: 0 !important; width: 100% !important; height: 100% !important; margin: 0 !important; background: rgba(15,23,42,.45); border-radius: 0 !important; text-align: center; }
+.bdm-portal .loading img { display: none; }
+.bdm-portal .loading::before { display: block; width: 46px; height: 46px; margin: calc(50vh - 35px) auto 14px; border: 5px solid #dce7f5; border-top-color: var(--bdm-primary); border-radius: 50%; content: ""; animation: bdm-spin .8s linear infinite; }
+.bdm-portal .loading > div { color: #fff; font-size: 14px !important; }
+@keyframes bdm-spin { to { transform: rotate(360deg); } }
+.bdm-portal #waitingpanel .modal-dialog img { display: none; }
+.bdm-portal #waitingpanel .modal-dialog::before { display: block; width: 46px; height: 46px; margin: 30vh auto 16px; border: 5px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; content: ""; animation: bdm-spin .8s linear infinite; }
+.bdm-report-modal .modal-dialog { max-width: 1100px; }
+.bdm-report-modal iframe { width: 100%; height: 72vh; border: 1px solid var(--bdm-border); background: #fff; }
 .bdm-portal .bdm-footer { padding: 16px 0; border-top: 1px solid var(--bdm-border); background: #fff; color: var(--bdm-muted); font-size: 12px; }
 .bdm-portal .bdm-footer .bdm-shell { display: flex; justify-content: space-between; }
 .bdm-portal .bdm-footer strong { color: var(--bdm-text); }
@@ -141,6 +150,7 @@
     .bdm-portal .bdm-brand-copy small { display: none; }
     .bdm-portal .bdm-footer .bdm-shell { display: block; text-align: center; }
     .bdm-portal .bdm-footer span { display: block; margin-top: 3px; }
+    .bdm-portal .bdm-logo { width: 90px; height: 56px; }
 }
 
 /* Standalone login */

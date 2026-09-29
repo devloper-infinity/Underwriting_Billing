@@ -77,6 +77,12 @@
         function downloadreport() {
             document.getElementById("<%= btndownload.ClientID %>").click();
         }
+        function showReportPreview(url, title) {
+            $('#reportPreviewTitle').text(title);
+            $('#reportPreviewFrame').attr('src', url);
+            $('#reportPreviewDownload').attr('href', url + '&download=1');
+            $('#reportPreviewModal').modal('show');
+        }
         function exportloanlist_senttoaccount() {
             document.getElementById("<%= btn1_excel.ClientID %>").click();
             return false;
@@ -90,6 +96,13 @@
     <div class="loading" id="load1">
         <img src="../images/Load_1.gif" />
         <div style="font-size: 12px; font-weight: bold;">One moment, please . . . .</div>
+    </div>
+    <div class="modal fade bdm-report-modal" id="reportPreviewModal" tabindex="-1">
+        <div class="modal-dialog modal-xl"><div class="modal-content">
+            <div class="modal-header"><h4 class="modal-title" id="reportPreviewTitle">Invoice Preview</h4><button type="button" class="close" data-dismiss="modal">&times;</button></div>
+            <div class="modal-body p-2"><iframe id="reportPreviewFrame" title="Invoice preview"></iframe></div>
+            <div class="modal-footer"><a id="reportPreviewDownload" class="btn btn-primary"><i class="fas fa-download"></i>&nbsp; Download</a><button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button></div>
+        </div></div>
     </div>
     <div class="content-header">
         <div class="container">

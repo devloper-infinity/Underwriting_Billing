@@ -1544,6 +1544,45 @@ namespace Vendor_Portal.App_Code.DAL
             return dt;
         }
 
+        public DataSet GetMonthlyDataForInvoiceExcel_DS(int ProjectID, string BillingPeriod, string ProcessName, string Slot)
+        {
+            // Sent-to-client Excel must use the immutable monthly archive.  Do not
+            // call usp_GetAllMergedBilling here: that procedure refreshes the live
+            // order-detail table before returning its result.
+            SqlCommand cmd = SQLHelper.GetCommand(System.Data.CommandType.StoredProcedure, "[usp_GetSentToClientMonthlyInvoiceExcel]");
+            SQLHelper.AddParamToSQLCmd(cmd, "@ProjectID", System.Data.SqlDbType.BigInt, 0, System.Data.ParameterDirection.Input, ProjectID);
+            SQLHelper.AddParamToSQLCmd(cmd, "@BillingPeriod", System.Data.SqlDbType.NVarChar, 1000, System.Data.ParameterDirection.Input, BillingPeriod);
+            DataSet ds = SQLHelper.ExecuteDataSetCmd_Billing(cmd);
+
+            // The existing Excel formatter expects a second result containing
+            // TotalCost. usp_GetAllMergedBilling returns the populated cost
+            // column in its first result, so provide the expected footer table.
+            if (ds != null && ds.Tables.Count == 1)
+            {
+                decimal totalCost = 0;
+                DataTable details = ds.Tables[0];
+                string totalColumn = details.Columns.Contains("Total")
+                    ? "Total"
+                    : (details.Columns.Contains("TotalCharges") ? "TotalCharges" : String.Empty);
+
+                if (totalColumn.Length > 0)
+                {
+                    foreach (DataRow row in details.Rows)
+                    {
+                        decimal value;
+                        if (Decimal.TryParse(Convert.ToString(row[totalColumn]), out value))
+                            totalCost += value;
+                    }
+                }
+
+                DataTable totals = new DataTable();
+                totals.Columns.Add("TotalCost", typeof(decimal));
+                totals.Rows.Add(totalCost);
+                ds.Tables.Add(totals);
+            }
+            return ds;
+        }
+
         public DataTable GetCostingHeaders()
         {
             const string sql = @"SELECT CostingHeaderID, HeaderName, CreatedBy,
@@ -2170,6 +2209,37 @@ namespace Vendor_Portal.App_Code.DAL
             SQLHelper.ExecuteNonQueryCmdBilling(cmd);
             int ReturnValue = Convert.ToInt32(cmd.Parameters["@ReturnValue"].Value);
             return ReturnValue;
+        }
+
+        public DataTable GetCleanLoanCosting()
+        {
+            SqlCommand cmd = SQLHelper.GetCommand(CommandType.StoredProcedure, "usp_GetCleanLoanCosting");
+            return SQLHelper.ExecuteDataTableCmd_billing(cmd);
+        }
+
+        public int InsertUpdateCleanLoanCosting(int cleanLoanCostingId, int projectId, string dealNo, decimal cleanLoanRate, int employeeId)
+        {
+            SqlCommand cmd = SQLHelper.GetCommand(CommandType.StoredProcedure, "usp_InsertUpdateCleanLoanCosting");
+            cmd.Parameters.Add("@CleanLoanCostingID", SqlDbType.Int).Value = cleanLoanCostingId;
+            cmd.Parameters.Add("@ProjectID", SqlDbType.Int).Value = projectId;
+            cmd.Parameters.Add("@DealNo", SqlDbType.NVarChar, 100).Value = String.IsNullOrWhiteSpace(dealNo) ? (object)DBNull.Value : dealNo.Trim();
+            SqlParameter rate = cmd.Parameters.Add("@CleanLoanRate", SqlDbType.Decimal);
+            rate.Precision = 18;
+            rate.Scale = 2;
+            rate.Value = cleanLoanRate;
+            cmd.Parameters.Add("@EmployeeID", SqlDbType.Int).Value = employeeId;
+            cmd.Parameters.Add("@ReturnValue", SqlDbType.Int).Direction = ParameterDirection.ReturnValue;
+            SQLHelper.ExecuteNonQueryCmdBilling(cmd);
+            return Convert.ToInt32(cmd.Parameters["@ReturnValue"].Value);
+        }
+
+        public int DeleteCleanLoanCosting(int cleanLoanCostingId)
+        {
+            SqlCommand cmd = SQLHelper.GetCommand(CommandType.StoredProcedure, "usp_DeleteCleanLoanCosting");
+            cmd.Parameters.Add("@CleanLoanCostingID", SqlDbType.Int).Value = cleanLoanCostingId;
+            cmd.Parameters.Add("@ReturnValue", SqlDbType.Int).Direction = ParameterDirection.ReturnValue;
+            SQLHelper.ExecuteNonQueryCmdBilling(cmd);
+            return Convert.ToInt32(cmd.Parameters["@ReturnValue"].Value);
         }
 
     }

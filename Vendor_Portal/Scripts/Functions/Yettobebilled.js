@@ -207,76 +207,93 @@ function BindBillingDataGrid_Revised() {
                 $('#senttoaccount_table').DataTable().destroy();
             }
             dataArray = JSON.parse(data.d);
-            $.each(dataArray, function (index, value) {
-                TotalCharges += parseFloat(value.Total);
-                TotalOrders += parseFloat(value.LoanCount);
-            });
-            if (ProjectID == 464)
-                document.getElementById("senttoaccount_btnexportloanlist").style.display = '';
-            else
-                document.getElementById("senttoaccount_btnexportloanlist").style.display = 'none';
+            if (dataArray.length > 0) {
 
-            document.getElementById("billdetails_header_ordercount").innerHTML = "Loan Count: " + TotalOrders;
-            document.getElementById("billdetails_header_totalamount").innerHTML = 'Amount: <span style="color:red;">' + parseFloat(TotalCharges).toFixed(2);
-            document.getElementById("billdetails_header_totalamount_hidden").innerHTML = parseFloat(TotalCharges).toFixed(2);
-            columnNames = Object.keys(dataArray[0]); //.Table[0]] refers to the propery name of the returned json
-            for (var i in columnNames) {
-                columns.push({
-                    data: columnNames[i],
-                    title: columnNames[i]
+                $.each(dataArray, function (index, value) {
+                    TotalCharges += parseFloat(value.Total);
+                });
+                if (ProjectID == 464)
+                    document.getElementById("senttoaccount_btnexportloanlist").style.display = '';
+                else
+                    document.getElementById("senttoaccount_btnexportloanlist").style.display = 'none';
+                console.log(dataArray);
+                console.log(dataArray[0]);
+                if (ProjectName == "667" || ProjectName == "561")
+                    document.getElementById("billdetails_header_ordercount").innerHTML = "Loan Count: " + dataArray.length;
+                else
+                    senttoaccount_bindActualLoanCount(ProjectID, BillingPeriod);
+                document.getElementById("billdetails_header_totalamount").innerHTML = 'Amount: <span style="color:red;">' + parseFloat(TotalCharges).toFixed(2);
+                document.getElementById("billdetails_header_totalamount_hidden").innerHTML = parseFloat(TotalCharges).toFixed(2);
+                columnNames = Object.keys(dataArray[0]); //.Table[0]] refers to the propery name of the returned json
+                for (var i in columnNames) {
+                    columns.push({
+                        data: columnNames[i],
+                        title: columnNames[i]
+                    });
+                }
+                $('#senttoaccount_table').DataTable({
+                    dom: 'Bftip',
+                    destroy: true,
+                    orderCellsTop: true,
+                    fixedColumns: {
+                        leftColumns: 2,
+                    },
+                    fixedHeader: true,
+                    scrollCollapse: true,
+                    scrollX: true,
+                    scrollY: '350px',
+                    "paging": false,
+                    "autoWidth": true,
+                    select: true,
+                    "ordering": false,
+                    processing: true,
+                    filter: true,
+                    'select': {
+                        'style': 'single'
+                    },
+                    "serverSide": false,
+                    "data": dataArray,
+                    columns: columns,
+                    buttons: [
+                        {
+                            extend: 'excelHtml5', title: filename, autoFilter: true,
+                        },
+
+
+                    ],
+                    columnDefs: [
+                        {
+                            targets: 0,
+                            visible: false,
+                        },
+                    ],
+                    initComplete: function () {
+                        $('#load1').hide();
+                        //document.getElementById('billdetails_header_totalamount').innerHTML = "Total Orders: " + dataArray.length;
+                    },
+                    //drawCallback: function () {
+                    //    var sum = $('#senttoaccount_table').DataTable().column("TotalCharges").data().sum();
+                    //    alert(sum);
+                    //    document.getElementById('billdetails_header_totalamount').innerHTML = sum;
+                    //},
                 });
             }
-            $('#senttoaccount_table').DataTable({
-                dom: 'Bftip',
-                destroy: true,
-                orderCellsTop: true,
-                fixedColumns: {
-                    leftColumns: 2,
-                },
-                fixedHeader: true,
-                scrollCollapse: true,
-                scrollX: true,
-                scrollY: '350px',
-                "paging": false,
-                "autoWidth": true,
-                select: true,
-                "ordering": false,
-                processing: true,
-                filter: true,
-                'select': {
-                    'style': 'single'
-                },
-                "serverSide": false,
-                "data": dataArray,
-                columns: columns,
-                buttons: [
-                    {
-                        extend: 'excelHtml5', title: filename, autoFilter: true,
-                    },
-
-
-                ],
-                columnDefs: [
-                    {
-                        targets: 0,
-                        visible: false,
-                    },
-                ],
-                initComplete: function () {
-                    $('#load1').hide();
-                    //document.getElementById('billdetails_header_totalamount').innerHTML = "Total Orders: " + dataArray.length;
-                },
-                //drawCallback: function () {
-                //    var sum = $('#senttoaccount_table').DataTable().column("TotalCharges").data().sum();
-                //    alert(sum);
-                //    document.getElementById('billdetails_header_totalamount').innerHTML = sum;
-                //},
-            });
-
+            else {
+                $('#load1').hide();
+                document.getElementById('billdetails_header_totalamount').innerHTML = "<b style='color:red'>Costing is not yet configured for the deals. Please confirm.</b>";
+            }
         }
     });
 
     return false;
+}
+
+function senttoaccount_bindActualLoanCount(ProjectID, BillingPeriod) {
+    PageMethods.GetActualLoanCount(ProjectID, BillingPeriod, function (result) {
+        document.getElementById("billdetails_header_ordercount").innerHTML = "Loan Count: " + result;
+    }, function (error) {
+        alert(error.get_message ? error.get_message() : "Unable to get loan count.");
+    });
 }
 
 function BindSendtoClient() {
@@ -511,29 +528,22 @@ function senttoaccout_verify_OnError(error) {
 
 function senttoaccount_senttoclient() {
     const urlParams = new URLSearchParams(window.location.search);
-    alert(urlParams);
     const ProjectID = urlParams.get('ProjectID');
-    alert(ProjectID);
     const BillingPeriod = urlParams.get('BillingPeriod');
-    alert(BillingPeriod);
     const ProjectName = urlParams.get('ProjectName');
-    alert(ProjectName);
     const DomainID = urlParams.get('DomainId');
-    alert(DomainID);
     const Slot = urlParams.get('Slot');
-    alert(Slot);
     var amount = document.getElementById("billdetails_header_totalamount").innerHTML;
     amount = amount.replace('Amount: <span style="color:red;">', "");
     amount = amount.replace('</span>', "");
-    alert(amount);
     var ordercount = document.getElementById("billdetails_header_ordercount").innerHTML;
     ordercount = ordercount.replace('Loan Count: ', "");
-    alert(ordercount);
     var ismanual = document.getElementById("senttoaccount_chkinvoicenumber").checked;
     var invoicenumber = document.getElementById("senttoaccount_invoicenumber").value;
-    alert(invoicenumber);
 
-
+    document.getElementById("spntext").innerHTML = "Submitting invoice to client. Please wait";
+    $('#waitingpanel').modal({ backdrop: 'static', keyboard: false });
+    $('#senttoaccount_btnsendtoclient').prop('disabled', true);
     PageMethods.Sendtoclient(ProjectID, ProjectName, BillingPeriod, amount, ordercount, ismanual, invoicenumber, senttoaccount_senttoclient_OnSuccess, senttoaccount_senttoclient_OnError);
     return false;
 }
@@ -542,11 +552,15 @@ function senttoaccount_senttoclient_OnSuccess(result) {
         location.href = "Yettobebilled_Revised.aspx";
     }
     else {
+        $('#waitingpanel').modal('hide');
+        $('#senttoaccount_btnsendtoclient').prop('disabled', false);
         alert("Error occured while sending billing to client. Please contact administrator.");
     }
     return false;
 }
 function senttoaccount_senttoclient_OnError(error) {
+    $('#waitingpanel').modal('hide');
+    $('#senttoaccount_btnsendtoclient').prop('disabled', false);
     alert(error.responseText);
 }
 
@@ -848,7 +862,11 @@ function geninv_OnSuccess(result) {
     return false;
 }
 function geninv_OnError(error) {
-    alert(error.responseText);
+    $("#waitingpanel").modal("hide");
+    var message = error && error.get_message
+        ? error.get_message()
+        : (error && error.responseText ? error.responseText : "Unable to generate invoice preview.");
+    alert(message);
 }
 
 function addinvoice_viewdetails(Index) {
@@ -868,11 +886,12 @@ function addinvoice_viewdetails_Revised(Index) {
     var ProjectName = row.ProjectName;
     var flag = row.Flag;
     //var Slot = row.Slot;
-   // if (flag == "0")
-    if (ProjectID==70)
-        location.href = "SentToAccounts_Revised.aspx?ProjectID=" + ProjectID + "&BillingPeriod=" + BillingPeriod + "&ProjectName=" + ProjectName + "&DomainId=9";
-    else
-        location.href = "SentToAccounts.aspx?ProjectID=" + ProjectID + "&BillingPeriod=" + BillingPeriod + "&ProjectName=" + ProjectName + "&DomainId=9&Slot=0";
+    // if (flag == "0")
+    location.href = "SentToAccounts_Revised.aspx?ProjectID=" + ProjectID + "&BillingPeriod=" + BillingPeriod + "&ProjectName=" + ProjectName + "&DomainId=9";
+    // if (ProjectID==70)
+    //     location.href = "SentToAccounts_Revised.aspx?ProjectID=" + ProjectID + "&BillingPeriod=" + BillingPeriod + "&ProjectName=" + ProjectName + "&DomainId=9";
+    // else
+    //     location.href = "SentToAccounts.aspx?ProjectID=" + ProjectID + "&BillingPeriod=" + BillingPeriod + "&ProjectName=" + ProjectName + "&DomainId=9&Slot=0";
 }
 
 function addinvoice_Download(Index) {

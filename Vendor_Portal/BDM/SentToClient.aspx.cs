@@ -92,8 +92,8 @@ namespace Vendor_Portal.BDM
                 else if (Convert.ToString(dt.Rows[0]["Securitization"]) == "670")
                     rpt.Load(HttpContext.Current.Server.MapPath("~/Reports/670.rpt"));
                 else if (ProjectID == 70)
-                    //rpt.Load("../Reports/NewSummaryReport1561.rpt");
-                    rpt.Load(HttpContext.Current.Server.MapPath("~/Reports/NewSummaryReport1561.rpt"));
+                    rpt.Load(HttpContext.Current.Server.MapPath("~/Reports/561Preview.rpt"));
+                    //rpt.Load(HttpContext.Current.Server.MapPath("~/Reports/NewSummaryReport1561.rpt"));
                 else if (ProjectID == 512)
                     rpt.Load(HttpContext.Current.Server.MapPath("~/Reports/2091.rpt"));
                 else if (ProjectID == 217)
@@ -214,6 +214,7 @@ namespace Vendor_Portal.BDM
                         filename = InvoiceNumber;
                     }
                     filename = filename.Replace(",", "_");
+                    filename = filename.Replace("#", "");
                     if (!Directory.Exists(HttpContext.Current.Server.MapPath(@"~/BillingDocuments/")))
                     {
                         Directory.CreateDirectory(HttpContext.Current.Server.MapPath(@"~/BillingDocuments/"));
@@ -262,46 +263,23 @@ namespace Vendor_Portal.BDM
             //releaseObject(xlWorkBook);
             //releaseObject(xlApp);
 
-            string filePath = FileName;
-            string outputPath = FileName;
-
-            // Zero-based index: e.g., index 0 = first sheet
-            int sheetIndexToDelete = 1;
-
-            using (var workbook = new XLWorkbook(filePath))
+            // Spire adds its evaluation worksheet during SaveToFile. Remove only
+            // that sheet; the generated Order Details sheet remains unchanged.
+            using (var workbook = new XLWorkbook(FileName))
             {
-                // Check if index is within bounds
-                if (sheetIndexToDelete >= 0 && sheetIndexToDelete < workbook.Worksheets.Count)
-                {
-                    var worksheet = workbook.Worksheet(1);
-                    workbook.Worksheets.Delete(worksheet.Name);
-                    worksheet = workbook.Worksheet(1);
-                    workbook.Worksheets.Delete(worksheet.Name);
-                    worksheet = workbook.Worksheet(1);
-                    workbook.Worksheets.Delete(worksheet.Name);
-                    worksheet = workbook.Worksheet(2);
-                    workbook.Worksheets.Delete(worksheet.Name);
-
-                    //worksheet = workbook.Worksheet(sheetIndexToDelete + 1);
-                    //workbook.Worksheets.Delete(worksheet.Name);
-                    //worksheet = workbook.Worksheet(sheetIndexToDelete + 2);
-                    //workbook.Worksheets.Delete(worksheet.Name);
-                    //worksheet = workbook.Worksheet(sheetIndexToDelete + 1);
-                    //workbook.Worksheets.Delete(worksheet.Name);
-                }
-                else
-                {
-
-                }
-
-                // Save the updated workbook
-                workbook.SaveAs(outputPath);
+                var warningSheet = workbook.Worksheets
+                    .FirstOrDefault(x => x.Name.Equals("Evaluation Warning", StringComparison.OrdinalIgnoreCase));
+                if (warningSheet != null)
+                    warningSheet.Delete();
+                workbook.SaveAs(FileName);
             }
+
             Response.Clear();
-            Response.Buffer = false;
-            Response.AppendHeader("Content-Type", "application/xlsx");
+            Response.BufferOutput = false;
+            Response.ContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
             Response.AppendHeader("Content-Transfer-Encoding", "binary");
-            Response.AppendHeader("Content-Disposition", "attachment; filename=" + Path.GetFileName(FileName));
+            string downloadName = Path.GetFileName(FileName).Replace("\"", "");
+            Response.AppendHeader("Content-Disposition", "attachment; filename=\"" + downloadName + "\"");
             Response.TransmitFile(FileName);
             Response.End();
         }
@@ -310,29 +288,38 @@ namespace Vendor_Portal.BDM
         public static int GenerateExcel(int ProjectID, string BillingPeriod, string Slot, int InvoiceId)
         {
             int returnvalue = 0;
-            FileName = HttpContext.Current.Server.MapPath(@"~\ReportDocument\Order_Excel_" + DateTime.Now.ToString("hhmmss") + ".xlsx");
-
             book.DefaultFontSize = 10;
             book.DefaultFontName = "Aptos Narrow";
 
             int rowcount = 0;
             int colcount = 0;
             book = new Workbook();
+            book.Worksheets.Clear();
             #region Project Inflow
             sheet = book.Worksheets.Add("Order Details");
             string Process = "";
+            string ProjectName = "";
+            string excelInvoiceNumber = "Invoice_" + InvoiceId;
             DataTable dtConfig = new bllTracking().GetProjectClientConfiguration(ProjectID, InvoiceId);
-            if (dtConfig != null)
+            if (dtConfig != null && dtConfig.Rows.Count > 0)
             {
                 string InvoiceConfig = dtConfig.Rows[0]["InvoiceConfiguration"].ToString();
                 Process = dtConfig.Rows[0]["ClientProcess"].ToString();
+                ProjectName = Convert.ToString(dtConfig.Rows[0]["ProjectName"]);
+                excelInvoiceNumber = Convert.ToString(dtConfig.Rows[0]["InvoiceNumber"]);
             }
+            if (String.IsNullOrWhiteSpace(excelInvoiceNumber))
+                excelInvoiceNumber = "Invoice_" + InvoiceId;
+            excelInvoiceNumber = Vendor_Portal.App_Code.EL.Filter.ValidFileName(excelInvoiceNumber);
+            FileName = HttpContext.Current.Server.MapPath(@"~\ReportDocument\" + excelInvoiceNumber + ".xlsx");
             if (Process == BillingPeriod)
                 Process = "";
             //else
             //    Process = ProcessName;
             //DataTable dt = new bllTracking().GetDataForInvoiceExcel(ProjectID, BillingPeriod, ProcessName, Slot);
-            DataSet ds = new bllTracking().GetDataForInvoiceExcel_DS(ProjectID, BillingPeriod, Process, Slot);
+            DataSet ds = String.Equals(ProjectName.Trim(), "667", StringComparison.OrdinalIgnoreCase)
+                ? new bllTracking().GetDataForInvoiceExcel_DS(ProjectID, BillingPeriod, Process, Slot)
+                : new bllTracking().GetMonthlyDataForInvoiceExcel_DS(ProjectID, BillingPeriod, Process, Slot);
             if (ds != null)
             {
                 DataTable dt = ds.Tables[0];
@@ -414,7 +401,6 @@ namespace Vendor_Portal.BDM
                     sheet.AllocatedRange.Style.Font.Size = 10;
 
                     sheet.AllocatedRange.AutoFitColumns();
-                    sheet.AllocatedRange.AutoFitRows();
                 }
             }
 

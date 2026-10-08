@@ -214,6 +214,7 @@
     <Content Include="BDM\BillingDifference.aspx" />
     <Content Include="BDM\BillingHeaderConfiguration.aspx" />
     <Content Include="BDM\ClientBillingDeviationReport.aspx" />
+    <Content Include="BDM\CleanLoanCostingConfiguration.aspx" />
     <Content Include="BDM\CostPerRecordReport.aspx" />
     <Content Include="BDM\AllVendorCosting.aspx" />
     <Content Include="BDM\DailyVolume.aspx" />
@@ -236,6 +237,7 @@
     <Content Include="BDM\SentToClient.aspx" />
     <Content Include="BDM\Yettobebilled_Revised.aspx" />
     <Content Include="BDM\Yettobebilled.aspx" />
+    <Content Include="Database\CleanLoanCostingConfiguration.sql" />
     <Content Include="bin\AjaxControlToolkit.dll" />
     <Content Include="bin\AjaxMin.dll" />
     <Content Include="bin\CRVsPackageLib.dll" />
@@ -2847,6 +2849,13 @@
       <DependentUpon>BillingComparisonReport.aspx</DependentUpon>
       <SubType>ASPXCodeBehind</SubType>
     </Compile>
+    <Compile Include="BDM\CleanLoanCostingConfiguration.aspx.cs">
+      <DependentUpon>CleanLoanCostingConfiguration.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="BDM\CleanLoanCostingConfiguration.aspx.designer.cs">
+      <DependentUpon>CleanLoanCostingConfiguration.aspx</DependentUpon>
+    </Compile>
     <Compile Include="BDM\BillingComparisonReport.aspx.designer.cs">
       <DependentUpon>BillingComparisonReport.aspx</DependentUpon>
     </Compile>
@@ -3036,6 +3045,12 @@
       <DependentUpon>Logout.aspx</DependentUpon>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Reports\561Preview.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>561Preview.rpt</DependentUpon>
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="Vendor\AddInvoice.aspx.cs">
       <DependentUpon>AddInvoice.aspx</DependentUpon>
       <SubType>ASPXCodeBehind</SubType>
@@ -3362,6 +3377,15 @@
       <Isolated>False</Isolated>
       <EmbedInteropTypes>True</EmbedInteropTypes>
     </COMReference>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Reports\561Preview.rpt">
+      <Generator>CrystalDecisions.VSDesigner.CodeGen.ReportCodeGenerator</Generator>
+      <LastGenOutput>561Preview.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <Service Include="{C0C07587-41A7-46C8-8FBD-3F9C8EBE2DDC}" />
   </ItemGroup>
   <PropertyGroup>
     <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>

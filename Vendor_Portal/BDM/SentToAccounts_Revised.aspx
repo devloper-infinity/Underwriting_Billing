@@ -57,6 +57,8 @@
         /*.form-control {
             font-size: 11px !important;
         }*/
+
+        #otherBillingAmountsSection .other-billing-remove-cell { width: 90px; text-align: center; }
     </style>
     <script type="text/javascript">
 
@@ -65,6 +67,7 @@
             BindBillingDataGrid_Revised();
             //senttoaccount_eGetVerifiedStatus();
             senttoaccount_generateinvoicenumber();
+            otherBillingAmounts_initialize();
             var CurrentUser = "<%=HttpContext.Current.User.Identity.Name.ToString() %>";
             if (CurrentUser == 5 || CurrentUser == 235) {
                 document.getElementById("senttoaccount_btnsendtoclient").style.display = '';
@@ -86,6 +89,101 @@
         function exportloanlist_senttoaccount() {
             document.getElementById("<%= btn1_excel.ClientID %>").click();
             return false;
+        }
+
+        var otherBillingTypes = [];
+        var pendingOtherBillingAction = null;
+
+        function otherBillingAmounts_pageContext() {
+            var parameters = new URLSearchParams(window.location.search);
+            return {
+                projectId: parseInt(parameters.get('ProjectID'), 10),
+                projectName: parameters.get('ProjectName') || '',
+                billingPeriod: parameters.get('BillingPeriod') || ''
+            };
+        }
+
+        function otherBillingAmounts_initialize() {
+            var context = otherBillingAmounts_pageContext();
+            if (context.projectName !== '561') return;
+            $('#otherBillingAmountsSection').show();
+            PageMethods.GetOtherBillingAmounts(context.projectId, context.billingPeriod, otherBillingAmounts_loaded, otherBillingAmounts_error);
+        }
+
+        function otherBillingAmounts_loaded(result) {
+            otherBillingTypes = result.BillingTypes || [];
+            $('#otherBillingAmountsBody').empty();
+            $.each(result.Records || [], function (_, row) { otherBillingAmounts_addRow(row); });
+        }
+
+        function otherBillingAmounts_encode(value) {
+            return $('<div/>').text(value == null ? '' : value).html();
+        }
+
+        function otherBillingAmounts_addRow(row) {
+            row = row || {};
+            $('#otherBillingAmountsBody').append(
+                '<tr class="other-billing-row" data-id="' + (row.Id || 0) + '">' +
+                '<td><input type="text" class="form-control other-billing-type" value="' + otherBillingAmounts_encode(row.BillingType || '') + '" /></td>' +
+                '<td><input type="number" min="0.01" step="0.01" class="form-control other-billing-amount" value="' + otherBillingAmounts_encode(row.Amount || '') + '" /></td>' +
+                '<td><input type="text" class="form-control other-billing-display-name" value="' + otherBillingAmounts_encode(row.InvoiceDisplayName || '') + '" /></td>' +
+                '<td class="other-billing-remove-cell"><button type="button" class="btn btn-sm btn-danger other-billing-remove">Remove</button></td></tr>');
+        }
+
+        $(document).on('click', '.other-billing-remove', function () { $(this).closest('tr').remove(); });
+
+        function otherBillingAmounts_save() {
+            var context = otherBillingAmounts_pageContext(), rows = [], valid = true, usedTypes = {};
+            $('.other-billing-row').each(function () {
+                var type = $.trim($(this).find('.other-billing-type').val());
+                var amountText = $.trim($(this).find('.other-billing-amount').val());
+                var displayName = $.trim($(this).find('.other-billing-display-name').val());
+                var amount = Number(amountText);
+                if (!type || !amountText || !isFinite(amount) || amount <= 0 || !displayName || usedTypes[type.toLowerCase()]) valid = false;
+                usedTypes[type.toLowerCase()] = true;
+                rows.push({ Id: Number($(this).data('id') || 0), BillingType: type, Amount: amount, InvoiceDisplayName: displayName });
+            });
+            if (!valid) {
+                alert('Complete every row with a unique Billing Type, a numeric Amount greater than zero, and an Invoice Display Name.');
+                return false;
+            }
+            PageMethods.SaveOtherBillingAmounts(context.projectId, context.billingPeriod, rows, function () {
+                alert('Other Billing Amounts saved successfully.');
+                otherBillingAmounts_initialize();
+            }, otherBillingAmounts_error);
+            return false;
+        }
+
+        function otherBillingAmounts_error(error) {
+            alert(error.get_message ? error.get_message() : 'Unable to process Other Billing Amounts.');
+        }
+
+        function otherBillingAmounts_checkBefore(action) {
+            var context = otherBillingAmounts_pageContext();
+            if (context.projectName !== '561') return action();
+            PageMethods.CheckOtherBillingAmountExists(context.projectId, context.billingPeriod, function (exists) {
+                if (exists) action();
+                else {
+                    pendingOtherBillingAction = action;
+                    $('#otherBillingAmountWarningModal').modal({ backdrop: 'static', keyboard: false });
+                }
+            }, otherBillingAmounts_error);
+            return false;
+        }
+
+        function senttoaccount_previewinvoice_with_other_billing_check() {
+            return otherBillingAmounts_checkBefore(function () { return senttoaccount_previewinvoice(); });
+        }
+
+        function senttoaccount_senttoclient_with_other_billing_check() {
+            return otherBillingAmounts_checkBefore(function () { return senttoaccount_senttoclient(); });
+        }
+
+        function otherBillingAmounts_continuePendingAction() {
+            var action = pendingOtherBillingAction;
+            pendingOtherBillingAction = null;
+            $('#otherBillingAmountWarningModal').modal('hide');
+            if (action) action();
         }
 
     </script>
@@ -129,9 +227,9 @@
                         <td>
                             <button id="senttoaccount_btnverifyorders" name="senttoaccount_btnverifyorders" onclick="return senttoaccount_verifyorders();" class="btn btn-success" style="border: solid 1px gray;"><i class="uil fs-0 me-2 uil-check"></i>&nbsp;Verify Orders</button>
                             <button id="senttoaccount_btnexporttoexcel" name="senttoaccount_btnexporttoexcel" onclick="return senttoaccount_exporttoexcel();" class="btn btn-secondary" style="display: none;">Export To Excel</button>
-                            <button id="senttoaccount_btnpreviewinvoice" name="senttoaccount_btnpreviewinvoice" onclick="return senttoaccount_previewinvoice();" class="btn btn-info" style="border: solid 1px gray;"><i class="uil fs-0 me-2 uil-invoice"></i>&nbsp;Preview Invoice</button>
+                            <button type="button" id="senttoaccount_btnpreviewinvoice" name="senttoaccount_btnpreviewinvoice" onclick="return senttoaccount_previewinvoice_with_other_billing_check();" class="btn btn-info" style="border: solid 1px gray;"><i class="uil fs-0 me-2 uil-invoice"></i>&nbsp;Preview Invoice</button>
                             <button id="senttoaccount_btnexportloanlist" name="senttoaccount_btnexportloanlist" onclick="return senttoaccount_exportloanlist();" class="btn btn-light" style="border: solid 1px gray;"><i class="uil fs-0 me-2 uil-list-ul"></i>&nbsp;Export Loan List</button>
-                            <button id="senttoaccount_btnsendtoclient" name="senttoaccount_btnsendtoclient" onclick="return senttoaccount_senttoclient();" class="btn btn-light" style="border: solid 1px gray;"><i class="uil fs-0 me-2 uil-list-ul"></i>&nbsp;Ready to send to client</button>
+                            <button type="button" id="senttoaccount_btnsendtoclient" name="senttoaccount_btnsendtoclient" onclick="return senttoaccount_senttoclient_with_other_billing_check();" class="btn btn-light" style="border: solid 1px gray;"><i class="uil fs-0 me-2 uil-list-ul"></i>&nbsp;Ready to send to client</button>
                             <button id="senttoaccount_btnsendtoproduction" name="senttoaccount_btnsendtoproduction" onclick="return senttoaccount_sendtoproduction();" class="btn btn-danger" style="float: right;"><i class="uil fs-0 me-2 uil-sign-in-alt"></i>&nbsp;Send Back To Production</button>
                         </td>
                     </tr>
@@ -147,6 +245,16 @@
                     </tr>
                 </table>
                 <hr />
+                <div id="otherBillingAmountsSection" style="display:none;">
+                    <h5>Other Billing Amounts</h5>
+                    <table class="table table-bordered">
+                        <thead><tr><th>Billing Type</th><th>Amount</th><th>Invoice Display Name</th><th>Remove</th></tr></thead>
+                        <tbody id="otherBillingAmountsBody"></tbody>
+                    </table>
+                    <button type="button" class="btn btn-secondary" onclick="otherBillingAmounts_addRow();">+ Add Other Billing Amount</button>
+                    <button type="button" class="btn btn-primary" onclick="return otherBillingAmounts_save();">Save Other Billing Amounts</button>
+                    <hr />
+                </div>
                 <table class="table table-bordered" id="senttoaccount_table" style="width: 100%"></table>
             </div>
         </div>
@@ -199,5 +307,15 @@
             <span style="color: #fff; font-size: 24px; font-weight: bold; font-style: italic;" id="spntext">Document generation is in process. Please wait</span>
             <span style="color: #fff; font-size: 48px; font-weight: bold; font-style: italic; animation: animate 1s linear infinite;">&nbsp;. . . .</span>
         </div>
+    </div>
+    <div class="modal fade" id="otherBillingAmountWarningModal" tabindex="-1" data-backdrop="static" data-keyboard="false">
+        <div class="modal-dialog"><div class="modal-content">
+            <div class="modal-header"><h4 class="modal-title">Other Billing Amount Not Configured</h4></div>
+            <div class="modal-body">Other billing amount is not configured, do you still want to proceed?</div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" onclick="otherBillingAmounts_continuePendingAction();">Yes</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal" onclick="pendingOtherBillingAction=null;">No</button>
+            </div>
+        </div></div>
     </div>
 </asp:Content>

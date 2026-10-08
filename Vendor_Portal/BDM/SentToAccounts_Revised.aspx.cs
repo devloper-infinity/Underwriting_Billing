@@ -7,7 +7,9 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
+using System.Data.SqlClient;
 using System.Drawing;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net.Mail;
@@ -39,6 +41,233 @@ namespace Vendor_Portal.BDM
             BillingPeriod = Convert.ToString(Request.QueryString["BillingPeriod"]);
             ProjectName = Convert.ToString(Request.QueryString["ProjectName"]);
             DomainId = Convert.ToInt32(Request.QueryString["DomainId"]);
+        }
+
+        public class OtherBillingAmountRow
+        {
+            public long Id { get; set; }
+            public string BillingType { get; set; }
+            public decimal Amount { get; set; }
+            public string InvoiceDisplayName { get; set; }
+        }
+
+        public class OtherBillingAmountData
+        {
+            public List<string> BillingTypes { get; set; }
+            public List<OtherBillingAmountRow> Records { get; set; }
+        }
+
+        private static string GetOtherBillingPeriod(string billingPeriod)
+        {
+            if (String.IsNullOrWhiteSpace(billingPeriod))
+                throw new ArgumentException("Billing period is required.");
+
+            DateTime periodDate;
+            string firstDate = billingPeriod.Split('~')[0].Trim();
+            string[] periodParts = billingPeriod.Split('~');
+            if (periodParts.Length == 2 && periodParts[0].Trim().All(Char.IsLetter))
+                firstDate = "1 " + periodParts[0].Trim() + " " + periodParts[1].Trim();
+            if (!DateTime.TryParse(firstDate, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out periodDate))
+                throw new ArgumentException("Invalid billing period.");
+            return periodDate.ToString("MMMM~yyyy", CultureInfo.InvariantCulture);
+        }
+
+        private static void EnsureOtherBillingProject(int projectId)
+        {
+            if (projectId != 70)
+                throw new InvalidOperationException("Other Billing Amounts are available only for Project 561.");
+        }
+
+        [WebMethod]
+        public static OtherBillingAmountData GetOtherBillingAmounts(int projectId, string billingPeriod)
+        {
+            EnsureOtherBillingProject(projectId);
+            string normalizedPeriod = GetOtherBillingPeriod(billingPeriod);
+            string[] periodParts = normalizedPeriod.Split('~');
+            DataTable configuredRows = new bllTracking().GetOtherAmount(periodParts[0], periodParts[1]);
+            OtherBillingAmountData result = new OtherBillingAmountData
+            {
+                BillingTypes = new List<string>(),
+                Records = new List<OtherBillingAmountRow>()
+            };
+
+            if (configuredRows != null)
+            {
+                foreach (DataRow row in configuredRows.Rows)
+                {
+                    string billingType = Convert.ToString(row["ChargeType"]).Trim();
+                    if (billingType.Length > 0 && !result.BillingTypes.Contains(billingType, StringComparer.OrdinalIgnoreCase))
+                        result.BillingTypes.Add(billingType);
+                }
+            }
+
+            using (SqlConnection connection = new SqlConnection(ConfigurationManager.ConnectionStrings["InfinityBilling"].ConnectionString))
+            using (SqlCommand command = new SqlCommand(@"
+                SELECT DISTINCT LTRIM(RTRIM(ChargeType)) AS ChargeType
+                FROM InfinityBilling_OtherBillingAmount
+                WHERE NULLIF(LTRIM(RTRIM(ChargeType)), '') IS NOT NULL;
+
+                SELECT Id, ChargeType, Amount, DisplayName
+                FROM InfinityBilling_OtherBillingAmount
+                WHERE BillingPeriod = @BillingPeriod
+                  AND (ProjectId = @ProjectId OR ProjectId IS NULL)
+                  AND NULLIF(LTRIM(RTRIM(ChargeType)), '') IS NOT NULL
+                ORDER BY Id", connection))
+            {
+                command.Parameters.Add("@BillingPeriod", SqlDbType.NVarChar, 100).Value = normalizedPeriod;
+                command.Parameters.Add("@ProjectId", SqlDbType.NVarChar, 20).Value = projectId.ToString(CultureInfo.InvariantCulture);
+                connection.Open();
+                using (SqlDataReader reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        string configuredType = Convert.ToString(reader["ChargeType"]).Trim();
+                        if (!result.BillingTypes.Contains(configuredType, StringComparer.OrdinalIgnoreCase))
+                            result.BillingTypes.Add(configuredType);
+                    }
+                    reader.NextResult();
+                    while (reader.Read())
+                    {
+                        decimal amount;
+                        Decimal.TryParse(Convert.ToString(reader["Amount"]), NumberStyles.Number, CultureInfo.InvariantCulture, out amount);
+                        string billingType = Convert.ToString(reader["ChargeType"]).Trim();
+                        if (!result.BillingTypes.Contains(billingType, StringComparer.OrdinalIgnoreCase))
+                            result.BillingTypes.Add(billingType);
+                        result.Records.Add(new OtherBillingAmountRow
+                        {
+                            Id = Convert.ToInt64(reader["Id"]),
+                            BillingType = billingType,
+                            Amount = amount,
+                            InvoiceDisplayName = Convert.ToString(reader["DisplayName"])
+                        });
+                    }
+                }
+            }
+
+            result.BillingTypes.Sort(StringComparer.OrdinalIgnoreCase);
+            return result;
+        }
+
+        [WebMethod]
+        public static bool CheckOtherBillingAmountExists(int projectId, string billingPeriod)
+        {
+            EnsureOtherBillingProject(projectId);
+            string normalizedPeriod = GetOtherBillingPeriod(billingPeriod);
+            using (SqlConnection connection = new SqlConnection(ConfigurationManager.ConnectionStrings["InfinityBilling"].ConnectionString))
+            using (SqlCommand command = new SqlCommand(@"
+                SELECT CASE WHEN EXISTS (
+                    SELECT 1 FROM InfinityBilling_OtherBillingAmount
+                    WHERE BillingPeriod = @BillingPeriod
+                      AND (ProjectId = @ProjectId OR ProjectId IS NULL)
+                      AND NULLIF(LTRIM(RTRIM(ChargeType)), '') IS NOT NULL
+                ) THEN 1 ELSE 0 END", connection))
+            {
+                command.Parameters.Add("@BillingPeriod", SqlDbType.NVarChar, 100).Value = normalizedPeriod;
+                command.Parameters.Add("@ProjectId", SqlDbType.NVarChar, 20).Value = projectId.ToString(CultureInfo.InvariantCulture);
+                connection.Open();
+                return Convert.ToInt32(command.ExecuteScalar()) == 1;
+            }
+        }
+
+        [WebMethod]
+        public static int SaveOtherBillingAmounts(int projectId, string billingPeriod, List<OtherBillingAmountRow> rows)
+        {
+            EnsureOtherBillingProject(projectId);
+            string normalizedPeriod = GetOtherBillingPeriod(billingPeriod);
+            rows = rows ?? new List<OtherBillingAmountRow>();
+            HashSet<string> billingTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (OtherBillingAmountRow row in rows)
+            {
+                row.BillingType = (row.BillingType ?? String.Empty).Trim();
+                row.InvoiceDisplayName = (row.InvoiceDisplayName ?? String.Empty).Trim();
+                if (row.BillingType.Length == 0 || row.InvoiceDisplayName.Length == 0 || row.Amount <= 0)
+                    throw new ArgumentException("Billing Type, an Amount greater than zero, and Invoice Display Name are required.");
+                if (!billingTypes.Add(row.BillingType))
+                    throw new ArgumentException("Each Billing Type can be entered only once for a billing month.");
+            }
+
+            long addedBy = Convert.ToInt64(HttpContext.Current.User.Identity.Name, CultureInfo.InvariantCulture);
+            using (SqlConnection connection = new SqlConnection(ConfigurationManager.ConnectionStrings["InfinityBilling"].ConnectionString))
+            {
+                connection.Open();
+                using (SqlTransaction transaction = connection.BeginTransaction())
+                {
+                    try
+                    {
+                        List<long> existingIds = new List<long>();
+                        using (SqlCommand select = new SqlCommand(@"
+                            SELECT Id FROM InfinityBilling_OtherBillingAmount
+                            WHERE BillingPeriod = @BillingPeriod
+                              AND (ProjectId = @ProjectId OR ProjectId IS NULL)
+                              AND NULLIF(LTRIM(RTRIM(ChargeType)), '') IS NOT NULL", connection, transaction))
+                        {
+                            select.Parameters.Add("@BillingPeriod", SqlDbType.NVarChar, 100).Value = normalizedPeriod;
+                            select.Parameters.Add("@ProjectId", SqlDbType.NVarChar, 20).Value = projectId.ToString(CultureInfo.InvariantCulture);
+                            using (SqlDataReader reader = select.ExecuteReader())
+                                while (reader.Read()) existingIds.Add(Convert.ToInt64(reader["Id"]));
+                        }
+
+                        HashSet<long> submittedIds = new HashSet<long>(rows.Where(row => row.Id > 0).Select(row => row.Id));
+                        foreach (long existingId in existingIds.Where(id => !submittedIds.Contains(id)))
+                        {
+                            using (SqlCommand delete = new SqlCommand("DELETE FROM InfinityBilling_OtherBillingAmount WHERE Id = @Id", connection, transaction))
+                            {
+                                delete.Parameters.Add("@Id", SqlDbType.BigInt).Value = existingId;
+                                delete.ExecuteNonQuery();
+                            }
+                        }
+
+                        foreach (OtherBillingAmountRow row in rows)
+                        {
+                            int updated = 0;
+                            if (row.Id > 0)
+                            {
+                                using (SqlCommand update = new SqlCommand(@"
+                                    UPDATE InfinityBilling_OtherBillingAmount
+                                    SET ProjectId = @ProjectId, ChargeType = @ChargeType, Amount = @Amount,
+                                        DisplayName = @DisplayName, AddedBy = @AddedBy, AddedDate = GETDATE()
+                                    WHERE Id = @Id AND BillingPeriod = @BillingPeriod
+                                      AND (ProjectId = @ProjectId OR ProjectId IS NULL)", connection, transaction))
+                                {
+                                    update.Parameters.Add("@Id", SqlDbType.BigInt).Value = row.Id;
+                                    update.Parameters.Add("@ProjectId", SqlDbType.NVarChar, 20).Value = projectId.ToString(CultureInfo.InvariantCulture);
+                                    update.Parameters.Add("@BillingPeriod", SqlDbType.NVarChar, 100).Value = normalizedPeriod;
+                                    update.Parameters.Add("@ChargeType", SqlDbType.NVarChar, 200).Value = row.BillingType;
+                                    update.Parameters.Add("@Amount", SqlDbType.NVarChar, 100).Value = row.Amount.ToString("0.00", CultureInfo.InvariantCulture);
+                                    update.Parameters.Add("@DisplayName", SqlDbType.NVarChar, -1).Value = row.InvoiceDisplayName;
+                                    update.Parameters.Add("@AddedBy", SqlDbType.BigInt).Value = addedBy;
+                                    updated = update.ExecuteNonQuery();
+                                }
+                            }
+
+                            if (updated > 0) continue;
+                            using (SqlCommand insert = new SqlCommand(@"
+                                INSERT INTO InfinityBilling_OtherBillingAmount
+                                    (ProjectId, BillingPeriod, ChargeType, Amount, DisplayName, AddedBy, AddedDate)
+                                VALUES
+                                    (@ProjectId, @BillingPeriod, @ChargeType, @Amount, @DisplayName, @AddedBy, GETDATE())", connection, transaction))
+                            {
+                                insert.Parameters.Add("@ProjectId", SqlDbType.NVarChar, 20).Value = projectId.ToString(CultureInfo.InvariantCulture);
+                                insert.Parameters.Add("@BillingPeriod", SqlDbType.NVarChar, 100).Value = normalizedPeriod;
+                                insert.Parameters.Add("@ChargeType", SqlDbType.NVarChar, 200).Value = row.BillingType;
+                                insert.Parameters.Add("@Amount", SqlDbType.NVarChar, 100).Value = row.Amount.ToString("0.00", CultureInfo.InvariantCulture);
+                                insert.Parameters.Add("@DisplayName", SqlDbType.NVarChar, -1).Value = row.InvoiceDisplayName;
+                                insert.Parameters.Add("@AddedBy", SqlDbType.BigInt).Value = addedBy;
+                                insert.ExecuteNonQuery();
+                            }
+                        }
+
+                        transaction.Commit();
+                        return rows.Count;
+                    }
+                    catch
+                    {
+                        transaction.Rollback();
+                        throw;
+                    }
+                }
+            }
         }
         [WebMethod]
         public static string GetTotalProjectAmount(int ProjectID, string ProjectName, string BillingPeriod, string Slot)
@@ -151,6 +380,22 @@ namespace Vendor_Portal.BDM
         }
 
         [WebMethod]
+        public static int GetActualLoanCount(int ProjectID, string BillingPeriod)
+        {
+            const string procedureName = "usp_GetActualLoanBilledCount";
+            using (SqlConnection connection = new SqlConnection(ConfigurationManager.ConnectionStrings["InfinityBilling"].ConnectionString))
+            using (SqlCommand command = new SqlCommand(procedureName, connection))
+            {
+                command.CommandType = CommandType.StoredProcedure;
+                command.Parameters.Add("@ProjectID", SqlDbType.Int).Value = ProjectID;
+                command.Parameters.Add("@BillingPeriod", SqlDbType.NVarChar, 1000).Value = BillingPeriod;
+                connection.Open();
+                object result = command.ExecuteScalar();
+                return result == null || result == DBNull.Value ? 0 : Convert.ToInt32(result);
+            }
+        }
+
+        [WebMethod]
         public static string GetInvoiceNumber(int ProjectID, string ProjectName, string BillingPeriod)
         {
             string ProcessName = "";
@@ -247,7 +492,8 @@ namespace Vendor_Portal.BDM
             else if (Securitization == "670")
                 rpt.Load(HttpContext.Current.Server.MapPath("~/Reports/670_Preview.rpt"));
             else
-                rpt.Load(HttpContext.Current.Server.MapPath("~/Reports/NewFormMerge.rpt"));
+                rpt.Load(HttpContext.Current.Server.MapPath("~/Reports/561Preview.rpt"));   
+                //rpt.Load(HttpContext.Current.Server.MapPath("~/Reports/NewFormMerge.rpt"));
 
 
             CrystalDecisions.Shared.ParameterValues pval1 = new ParameterValues();
@@ -387,6 +633,34 @@ namespace Vendor_Portal.BDM
             {
                 ProcessName = ProjectName.Substring(ProjectName.IndexOf("-") + 1);
             }
+
+            // Project Name 561 stores monthly Other Billing Amounts separately.
+            // Add their current month total on the server so InvoiceMaster gets
+            // the complete invoice amount and cannot depend on browser values.
+            if (ProjectID == 70 && String.Equals((ProjectName ?? String.Empty).Trim(), "561", StringComparison.OrdinalIgnoreCase))
+            {
+                decimal invoiceAmount;
+                if (!Decimal.TryParse(Amount, NumberStyles.Number, CultureInfo.InvariantCulture, out invoiceAmount) &&
+                    !Decimal.TryParse(Amount, NumberStyles.Number, CultureInfo.CurrentCulture, out invoiceAmount))
+                    throw new ArgumentException("Invalid invoice amount.");
+
+                string normalizedPeriod = GetOtherBillingPeriod(BillingPeriod);
+                using (SqlConnection connection = new SqlConnection(ConfigurationManager.ConnectionStrings["InfinityBilling"].ConnectionString))
+                using (SqlCommand command = new SqlCommand(@"
+                    SELECT ISNULL(SUM(ISNULL(TRY_CONVERT(DECIMAL(18,2), Amount), 0)), 0)
+                    FROM InfinityBilling_OtherBillingAmount
+                    WHERE BillingPeriod = @BillingPeriod
+                      AND (ProjectId = @ProjectId OR ProjectId IS NULL)
+                      AND NULLIF(LTRIM(RTRIM(ChargeType)), '') IS NOT NULL", connection))
+                {
+                    command.Parameters.Add("@BillingPeriod", SqlDbType.NVarChar, 100).Value = normalizedPeriod;
+                    command.Parameters.Add("@ProjectId", SqlDbType.NVarChar, 20).Value = ProjectID.ToString(CultureInfo.InvariantCulture);
+                    connection.Open();
+                    invoiceAmount += Convert.ToDecimal(command.ExecuteScalar(), CultureInfo.InvariantCulture);
+                }
+                Amount = invoiceAmount.ToString("0.00", CultureInfo.InvariantCulture);
+            }
+
             Hashtable htParam = new Hashtable();
             htParam.Add("ProjectID", Convert.ToString(ProjectID));
             htParam.Add("BillingPeriod", Convert.ToString(BillingPeriod));

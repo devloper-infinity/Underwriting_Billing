@@ -491,6 +491,10 @@ namespace Vendor_Portal.App_Code.BLL
         {
             return dalTracking.GetDataForInvoiceExcel_DS(ProjectID, BillingPeriod, ProcessName, Slot);
         }
+        public DataSet GetMonthlyDataForInvoiceExcel_DS(int ProjectID, string BillingPeriod, string ProcessName, string Slot)
+        {
+            return dalTracking.GetMonthlyDataForInvoiceExcel_DS(ProjectID, BillingPeriod, ProcessName, Slot);
+        }
         public int InsertUWProcess(Hashtable htParam)
         {
             return dalTracking.InsertUWProcess(htParam);
@@ -748,6 +752,18 @@ namespace Vendor_Portal.App_Code.BLL
         public int InsertRateRevisionConfiguration(Hashtable htParam)
         {
             return dalTracking.InsertRateRevisionConfiguration(htParam);
+        }
+        public DataTable GetCleanLoanCosting()
+        {
+            return dalTracking.GetCleanLoanCosting();
+        }
+        public int InsertUpdateCleanLoanCosting(int cleanLoanCostingId, int projectId, string dealNo, decimal cleanLoanRate, int employeeId)
+        {
+            return dalTracking.InsertUpdateCleanLoanCosting(cleanLoanCostingId, projectId, dealNo, cleanLoanRate, employeeId);
+        }
+        public int DeleteCleanLoanCosting(int cleanLoanCostingId)
+        {
+            return dalTracking.DeleteCleanLoanCosting(cleanLoanCostingId);
         }
     }
 }

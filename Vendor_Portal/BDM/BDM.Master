@@ -49,7 +49,7 @@
         <asp:ToolkitScriptManager ID="ToolkitScriptManager1" runat="server" EnablePageMethods="true">
             <Scripts>
                 <asp:ScriptReference Path="~/Scripts/Functions/ProjectDetailsMaster.js?v=1" />
-                <asp:ScriptReference Path="~/Scripts/Functions/Yettobebilled.js?v=2" />
+                <asp:ScriptReference Path="~/Scripts/Functions/Yettobebilled.js?v=3" />
                 <asp:ScriptReference Path="~/Scripts/Functions/PriceConfiguration.js?v=1" />
                 <asp:ScriptReference Path="~/Scripts/Functions/Reports.js?v=1" />
                 <asp:ScriptReference Path="~/Scripts/Functions/MergedBilling.js?v=1" />
@@ -87,6 +87,7 @@
                                     <li id="secbilling"><a href="SecuritizationBilling.aspx" class="dropdown-item">561 Securitization Billing</a></li>
                                     <li id="payingEntity"><a href="PayingEntityMaster.aspx" class="dropdown-item">Paying Entity Master</a></li>
                                     <li id="OtherAmount"><a href="OtherBillingAmontMaster.aspx" class="dropdown-item">Other Billing Amount Master</a></li>
+                                    <li id="cleanLoanCosting"><a href="CleanLoanCostingConfiguration.aspx" class="dropdown-item">Clean Loan Costing Configuration</a></li>
                                 </ul>
                             </li>
                             <li class="nav-item dropdown">

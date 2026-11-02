@@ -209,9 +209,17 @@ function BindBillingDataGrid_Revised() {
             dataArray = JSON.parse(data.d);
             if (dataArray.length > 0) {
 
-                $.each(dataArray, function (index, value) {
-                    TotalCharges += parseFloat(value.Total);
-                });
+                if (ProjectID == 464) {
+                    $.each(dataArray, function (index, value) {
+                        TotalCharges += parseFloat(value.TotalCharges);
+                    });
+                }
+                else {
+                    $.each(dataArray, function (index, value) {
+                        TotalCharges += parseFloat(value.Total);
+                    });
+                }
+                //alert(TotalCharges);
                 if (ProjectID == 464)
                     document.getElementById("senttoaccount_btnexportloanlist").style.display = '';
                 else

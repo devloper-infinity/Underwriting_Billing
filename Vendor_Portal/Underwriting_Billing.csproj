@@ -209,6 +209,8 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="BDM\AddInvoice.aspx" />
+    <Content Include="Scripts\qrcode.min.js" />
+    <Content Include="Scripts\qrcode.LICENSE.txt" />
     <Content Include="BDM\AllProjectBillingReport.aspx" />
     <Content Include="BDM\BillingComparisonReport.aspx" />
     <Content Include="BDM\BillingDifference.aspx" />
@@ -2823,6 +2825,7 @@
     <Compile Include="App_Code\DAL\SQLHelper.cs" />
     <Compile Include="App_Code\EL\Encryption.cs" />
     <Compile Include="App_Code\EL\Filter.cs" />
+    <Compile Include="App_Code\EL\TotpAuthenticator.cs" />
     <Compile Include="App_Code\Number ToText.cs" />
     <Compile Include="BDM\AddInvoice.aspx.cs">
       <DependentUpon>AddInvoice.aspx</DependentUpon>

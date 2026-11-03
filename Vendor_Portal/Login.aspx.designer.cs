@@ -50,6 +50,8 @@ namespace Vendor_Portal
         /// </remarks>
         protected global::AjaxControlToolkit.ToolkitScriptManager ToolkitScriptManager1;
 
+        protected global::System.Web.UI.WebControls.Panel credentialsPanel;
+
         /// <summary>
         /// chkRemember control.
         /// </summary>
@@ -58,5 +60,11 @@ namespace Vendor_Portal
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
         protected global::System.Web.UI.HtmlControls.HtmlInputCheckBox chkRemember;
+
+        protected global::System.Web.UI.WebControls.Panel mfaPanel;
+        protected global::System.Web.UI.WebControls.HiddenField mfaProvisioningUri;
+        protected global::System.Web.UI.WebControls.Panel mfaEnrollmentPanel;
+        protected global::System.Web.UI.WebControls.Literal mfaManualKey;
+        protected global::System.Web.UI.WebControls.Button btnVerifyMfa;
     }
 }

@@ -32,6 +32,10 @@ namespace Vendor_Portal.App_Code.BLL
             return dalLogin.GetUserInformation(EmployeeID);
         }
 
+        public string GetMfaSecret(long employeeId) { return dalLogin.GetMfaSecret(employeeId); }
+        public void EnableMfa(long employeeId, string protectedSecret) { dalLogin.EnableMfa(employeeId, protectedSecret); }
+        public void RecordMfaUse(long employeeId) { dalLogin.RecordMfaUse(employeeId); }
+
         public string Encrypt(string clearText)
         {
             string EncryptionKey = "MAKV2SPBNI99212";

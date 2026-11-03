@@ -18,6 +18,13 @@
             __doPostBack('<%= btnLogin.UniqueID %>', '');
             return false;
         }
+        function renderMfaQr() {
+            var target = document.getElementById('mfaQr');
+            var uri = document.getElementById('<%= mfaProvisioningUri.ClientID %>');
+            if (target && uri && uri.value && target.childNodes.length === 0) {
+                new QRCode(target, { text: uri.value, width: 180, height: 180, correctLevel: QRCode.CorrectLevel.M });
+            }
+        }
     </script>
 </head>
 <body class="bdm-login">
@@ -47,16 +54,31 @@
                     <asp:ToolkitScriptManager ID="ToolkitScriptManager1" runat="server" EnablePageMethods="true">
                         <Scripts><asp:ScriptReference Path="~/Scripts/Functions/Login.js" /></Scripts>
                     </asp:ToolkitScriptManager>
-                    <div class="bdm-login-field">
-                        <label for="login_username">Username</label>
-                        <div class="bdm-login-input"><i class="fas fa-user"></i><input type="text" id="login_username" name="login_username" autocomplete="username" placeholder="Enter username" required /></div>
-                    </div>
-                    <div class="bdm-login-field">
-                        <label for="login_password">Password</label>
-                        <div class="bdm-login-input"><i class="fas fa-lock"></i><input type="password" id="login_password" name="login_password" autocomplete="current-password" placeholder="Enter password" required /></div>
-                    </div>
-                    <input type="checkbox" id="chkRemember" runat="server" style="display:none" />
-                    <button id="login_btnsubmit" name="login_btnsubmit" class="bdm-login-button" onclick="return login_submit();">Sign in <i class="fas fa-arrow-right"></i></button>
+                    <asp:Panel ID="credentialsPanel" runat="server">
+                        <div class="bdm-login-field">
+                            <label for="login_username">Username</label>
+                            <div class="bdm-login-input"><i class="fas fa-user"></i><input type="text" id="login_username" name="login_username" autocomplete="username" placeholder="Enter username" required /></div>
+                        </div>
+                        <div class="bdm-login-field">
+                            <label for="login_password">Password</label>
+                            <div class="bdm-login-input"><i class="fas fa-lock"></i><input type="password" id="login_password" name="login_password" autocomplete="current-password" placeholder="Enter password" required /></div>
+                        </div>
+                        <input type="checkbox" id="chkRemember" runat="server" style="display:none" />
+                        <button id="login_btnsubmit" name="login_btnsubmit" class="bdm-login-button" onclick="return login_submit();">Sign in <i class="fas fa-arrow-right"></i></button>
+                    </asp:Panel>
+                    <asp:Panel ID="mfaPanel" runat="server" Visible="false">
+                        <asp:HiddenField ID="mfaProvisioningUri" runat="server" />
+                        <asp:Panel ID="mfaEnrollmentPanel" runat="server" Visible="false">
+                            <p class="bdm-login-help">Scan this QR code with Microsoft Authenticator, Google Authenticator, or another TOTP app, then enter the 6-digit code.</p>
+                            <div id="mfaQr" style="display:flex;justify-content:center;margin:16px 0"></div>
+                            <p class="bdm-login-help">Manual setup key: <strong><asp:Literal ID="mfaManualKey" runat="server" /></strong></p>
+                        </asp:Panel>
+                        <div class="bdm-login-field">
+                            <label for="mfa_code">Authentication code</label>
+                            <div class="bdm-login-input"><i class="fas fa-shield-alt"></i><input type="text" id="mfa_code" name="mfa_code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" placeholder="6-digit code" required /></div>
+                        </div>
+                        <asp:Button ID="btnVerifyMfa" runat="server" CssClass="bdm-login-button" Text="Verify and continue" OnClick="btnVerifyMfa_Click" />
+                    </asp:Panel>
                 </form>
                 <p class="bdm-login-note"><i class="fas fa-lock"></i> Your connection is protected and monitored.</p>
             </div>
@@ -65,5 +87,7 @@
     <script src="plugins/jquery/jquery.min.js"></script>
     <script src="plugins/bootstrap/js/bootstrap.bundle.min.js"></script>
     <script src="dist/js/adminlte.min.js"></script>
+    <script src="Scripts/qrcode.min.js"></script>
+    <script>renderMfaQr();</script>
 </body>
 </html>

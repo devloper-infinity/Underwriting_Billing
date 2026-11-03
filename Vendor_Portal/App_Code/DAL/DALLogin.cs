@@ -47,5 +47,32 @@ namespace Vendor_Portal.App_Code.DAL
             DataTable dt = SQLHelper.ExecuteDataTableCmd(cmd);
             return dt;
         }
+
+        public string GetMfaSecret(long employeeId)
+        {
+            SqlCommand cmd = SQLHelper.GetCommand(CommandType.Text,
+                "SELECT ProtectedSecret FROM dbo.UserMfa WHERE EmployeeId = @EmployeeId AND IsEnabled = 1");
+            SQLHelper.AddParamToSQLCmd(cmd, "@EmployeeId", SqlDbType.BigInt, 0, ParameterDirection.Input, employeeId);
+            object value = SQLHelper.ExecuteScalarCmd(cmd);
+            return value == null || value == DBNull.Value ? null : Convert.ToString(value);
+        }
+
+        public void EnableMfa(long employeeId, string protectedSecret)
+        {
+            SqlCommand cmd = SQLHelper.GetCommand(CommandType.Text,
+                "UPDATE dbo.UserMfa SET ProtectedSecret=@Secret, IsEnabled=1, EnrolledUtc=SYSUTCDATETIME() WHERE EmployeeId=@EmployeeId; " +
+                "IF @@ROWCOUNT=0 INSERT dbo.UserMfa(EmployeeId, ProtectedSecret, IsEnabled) VALUES(@EmployeeId,@Secret,1);");
+            SQLHelper.AddParamToSQLCmd(cmd, "@EmployeeId", SqlDbType.BigInt, 0, ParameterDirection.Input, employeeId);
+            SQLHelper.AddParamToSQLCmd(cmd, "@Secret", SqlDbType.NVarChar, 1000, ParameterDirection.Input, protectedSecret);
+            SQLHelper.ExecuteNonQueryCmd(cmd);
+        }
+
+        public void RecordMfaUse(long employeeId)
+        {
+            SqlCommand cmd = SQLHelper.GetCommand(CommandType.Text,
+                "UPDATE dbo.UserMfa SET LastUsedUtc=SYSUTCDATETIME() WHERE EmployeeId=@EmployeeId");
+            SQLHelper.AddParamToSQLCmd(cmd, "@EmployeeId", SqlDbType.BigInt, 0, ParameterDirection.Input, employeeId);
+            SQLHelper.ExecuteNonQueryCmd(cmd);
+        }
     }
 }

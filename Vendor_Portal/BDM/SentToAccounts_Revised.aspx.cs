@@ -475,8 +475,8 @@ namespace Vendor_Portal.BDM
             //else if (int.Parse(ProjectID) == 512)
             //    rpt.Load(HttpContext.Current.Server.MapPath("~/Reports/2091_Preview.rpt"));
             //else
-            if (int.Parse(ProjectID) != 70)
-                rpt.Load(HttpContext.Current.Server.MapPath("~/Reports/MergeBillingAll.rpt"));
+            if (Process != BillingPeriod)
+                rpt.Load(HttpContext.Current.Server.MapPath("~/Reports/PCQCSummary_Preview.rpt"));
             else if (Securitization == "561")
                 rpt.Load(HttpContext.Current.Server.MapPath("~/Reports/SecuritizationPreview561.rpt"));
             else if (Securitization == "Yes")
@@ -491,9 +491,11 @@ namespace Vendor_Portal.BDM
                 rpt.Load(HttpContext.Current.Server.MapPath("~/Reports/642_Preview.rpt"));
             else if (Securitization == "670")
                 rpt.Load(HttpContext.Current.Server.MapPath("~/Reports/670_Preview.rpt"));
+            else if (int.Parse(ProjectID) != 70)
+                rpt.Load(HttpContext.Current.Server.MapPath("~/Reports/MergeBillingAll.rpt"));
             else
-                rpt.Load(HttpContext.Current.Server.MapPath("~/Reports/561Preview.rpt"));   
-                //rpt.Load(HttpContext.Current.Server.MapPath("~/Reports/NewFormMerge.rpt"));
+                rpt.Load(HttpContext.Current.Server.MapPath("~/Reports/561Preview.rpt"));
+            //rpt.Load(HttpContext.Current.Server.MapPath("~/Reports/NewFormMerge.rpt"));
 
 
             CrystalDecisions.Shared.ParameterValues pval1 = new ParameterValues();

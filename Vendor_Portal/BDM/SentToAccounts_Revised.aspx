@@ -105,6 +105,7 @@
 
         function otherBillingAmounts_initialize() {
             var context = otherBillingAmounts_pageContext();
+            if (!context.billingPeriod.includes("~")) return;
             if (context.projectName !== '561') return;
             $('#otherBillingAmountsSection').show();
             PageMethods.GetOtherBillingAmounts(context.projectId, context.billingPeriod, otherBillingAmounts_loaded, otherBillingAmounts_error);
